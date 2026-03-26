@@ -386,7 +386,7 @@ for (const [tipo, minutos] of tiposOrdenados) {
           info.textContent="";
 
           try{
-            const r=await fetch("http://localhost:3000/paragem/editar",{
+            const r=await fetch("/paragem/editar",{
               method:"POST",
               headers:{"Content-Type":"application/json"},
               body:JSON.stringify({dia,id:st.id,tipo:novoTipo})
@@ -403,7 +403,7 @@ for (const [tipo, minutos] of tiposOrdenados) {
 
             const per = getPeriodoLS() || getPeriodoFromStops(STOPS);
             if(per){
-              const u=new URL("http://localhost:3000/update");
+              const u=new URL("/update");
               u.searchParams.set("inicio",per.inicio);
               u.searchParams.set("fim",per.fim);
               await fetch(u.toString());
@@ -430,7 +430,7 @@ for (const [tipo, minutos] of tiposOrdenados) {
 
           try{
             const r=await fetch(
-              `http://localhost:3000/paragem/editar/${encodeURIComponent(dia)}/${encodeURIComponent(st.id)}`,
+              `/paragem/editar/${encodeURIComponent(dia)}/${encodeURIComponent(st.id)}`,
               {method:"DELETE"}
             );
             const j=await r.json();
@@ -441,7 +441,7 @@ for (const [tipo, minutos] of tiposOrdenados) {
 
             const per=getPeriodoLS() || getPeriodoFromStops(STOPS);
             if(per){
-              const u=new URL("http://localhost:3000/update");
+              const u=new URL("/update");
               u.searchParams.set("inicio",per.inicio);
               u.searchParams.set("fim",per.fim);
               await fetch(u.toString());

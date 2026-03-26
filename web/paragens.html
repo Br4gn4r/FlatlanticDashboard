@@ -403,9 +403,9 @@ for (const [tipo, minutos] of tiposOrdenados) {
 
             const per = getPeriodoLS() || getPeriodoFromStops(STOPS);
             if(per){
-              const u=new URL("/update");
-              u.searchParams.set("inicio",per.inicio);
-              u.searchParams.set("fim",per.fim);
+              const u = new URL("/update", window.location.origin);
+              u.searchParams.set("inicio", per.inicio);
+              u.searchParams.set("fim", per.fim);
               await fetch(u.toString());
             }
 
@@ -441,9 +441,9 @@ for (const [tipo, minutos] of tiposOrdenados) {
 
             const per=getPeriodoLS() || getPeriodoFromStops(STOPS);
             if(per){
-              const u=new URL("/update");
-              u.searchParams.set("inicio",per.inicio);
-              u.searchParams.set("fim",per.fim);
+              const u = new URL("/update", window.location.origin);
+              u.searchParams.set("inicio", per.inicio);
+              u.searchParams.set("fim", per.fim);
               await fetch(u.toString());
             }
 

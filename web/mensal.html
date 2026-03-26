@@ -1,0 +1,344 @@
+<!doctype html>
+<html lang="pt">
+<head>
+  <meta charset="utf-8" />
+  <title>Indicadores Mensais – Flatlantic</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    :root{ --flat-blue:#0b4ea2; --flat-blue-dark:#083d7f; }
+    body { font-family: Arial, sans-serif; margin: 24px; background: #f2f5f9; }
+
+    /* TOPBAR */
+    .topbar { display:flex; align-items:center; gap:16px; margin-bottom:16px; flex-wrap:wrap; }
+    .logo-flatlantic{ height:32px; vertical-align:middle; }
+    .nav{ display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+    .pill{ background:var(--flat-blue); color:#fff; border:none; border-radius:12px; padding:8px 14px; cursor:pointer; font-weight:600; }
+    .pill:hover{ background:var(--flat-blue-dark); }
+    .pill.active{ background:#0a6be6; box-shadow:0 0 0 2px #fff inset, 0 0 0 2px #0a6be6; }
+
+    .status-badge{ background:var(--flat-blue); color:#fff; border-radius:8px; padding:4px 8px; font-size:12px; white-space:nowrap; }
+    /* Animação de estado (igual ao dashboard) */
+    .status-badge.loading{ background:#ff9800; animation:pulse 1s infinite; }
+    @keyframes pulse{ 0%{opacity:1} 50%{opacity:.5} 100%{opacity:1} }
+
+    table { width:100%; border-collapse:collapse; margin-bottom:30px; background:white; }
+    th, td { padding:8px; border:1px solid #d6d9de; font-size:14px; }
+    th { background:#e7e7e7; font-weight:bold; }
+    td.num { text-align:right; }
+    h3 { margin-top: 20px; color: #0b4ea2; }
+
+    button.flat-btn {
+      padding: 8px 16px;
+      background: var(--flat-blue);
+      color: white;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: bold;
+    }
+    button.flat-btn:hover { background: var(--flat-blue-dark); }
+  </style>
+</head>
+<body data-page="mensal">
+
+  <!-- TOPBAR -->
+  <div class="topbar">
+
+    <img src="FlatlanticLogo.jpg?v=1" class="logo-flatlantic" alt="Flatlantic">
+
+    <div class="nav">
+        <button class="pill" data-link="dashboard" onclick="go('dashboard.html')">Indicadores Diários</button>
+        <button class="pill" data-link="mensal" onclick="go('mensal.html')">Indicadores Mensais</button>
+        <button class="pill" data-link="paragens" onclick="go('paragens.html')">Paragens</button>
+        <button class="pill" data-link="totais" onclick="go('totais.html')">Totais por Lote</button>
+        <span id="status" class="status-badge">Atualizado …</span>
+    </div>
+
+    <!-- ✅ BLOCO DE LOGIN/LOGOUT, sempre no fim e alinhado à direita -->
+    <div class="auth-box" style="margin-left:auto; display:flex; gap:12px; align-items:center;">
+        <span id="loginStatus" style="color:#0b4ea2; font-weight:bold;">(sessão ativa)</span>
+        <button onclick="logout()" class="pill" style="background:#d9534f;">Logout</button>
+    </div>
+
+</div>
+
+  <!-- Conteúdo -->
+  <div id="container"></div>
+
+  <!-- Toolbar global para exportar todas as tabelas mensais -->
+  <div id="exportBarMensal" style="margin:16px 0; display:flex; gap:8px; flex-wrap:wrap;">
+    <button id="btnExportMensalTab" class="flat-btn">Exportar CSV (Tabelas Mensais)</button>
+  </div>
+
+  <!-- Indicadores (dados) -->
+  <script src="indicadores.js"></script>
+
+  <script>
+  // ---- Navegação / Topbar ----
+  function go(h){ location.href=h; }
+  function markActiveFromBody() {
+    const current = document.body.getAttribute('data-page');
+    if (!current) return;
+    const btn = document.querySelector(`.nav .pill[data-link="${current}"]`);
+    if (btn) btn.classList.add('active');
+  }
+  markActiveFromBody();
+
+  // ---- Estado / Dados ----
+  const statusEl = document.getElementById('status');
+  const monthly = (window.__indicadores && window.__indicadores.monthly) ? window.__indicadores.monthly : [];
+  const diarios = (window.__indicadores && window.__indicadores.data) ? window.__indicadores.data : [];
+  const container = document.getElementById("container");
+
+  // ---- Render de tabelas por mês ----
+ 
+function renderTabela(m) {
+  // 1) Dias do mês (calendário)
+  const [yyyy, mm] = m.month.split('-').map(Number);
+  const totalDiasMes = new Date(yyyy, mm, 0).getDate();
+
+  // 2) Minutos totais trabalhados no mês (soma de proc_min dos dias desse mês)
+  const diasDoMes = diarios.filter(d => d.date && d.date.startsWith(m.month));
+  const totalMinMes = diasDoMes.reduce((acc, d) => acc + (Number(d.proc_min || 0)), 0);
+
+  // 3) Capacidade mensal em minutos (dias do mês × 9,5h × 60)
+  const capacidadeMesMin = totalDiasMes * 9.5 * 60;
+
+  // 4) Ocupação em percentagem (1 decimal)
+  const ocupacaoPct = capacidadeMesMin > 0
+    ? ((totalMinMes / capacidadeMesMin) * 100)
+    : 0;
+
+  // 5) Render da tabela
+  const t = document.createElement("table");
+  t.innerHTML = `
+    <thead><tr><th colspan="2">Mês ${m.month}</th></tr></thead>
+<tbody>
+  <tr><td>Peixes por minuto</td>
+      <td class="num">${Math.round(m.fish_per_min || 0)}</td></tr>
+
+  <tr><td>Kg por minuto</td>
+      <td class="num">${Math.round(m.kg_per_min || 0)}</td></tr>
+
+  <tr><td>Peso médio (kg/peixe)</td>
+      <td class="num">${(m.avg_weight || 0).toFixed(3)}</td></tr>
+
+  <tr><td>Média de referências</td>
+      <td class="num">${Math.round(m.avg_refs || 0)}</td></tr>
+
+  <tr><td>Dias trabalhados</td>
+      <td class="num">${m.days || 0}</td></tr>
+
+  <tr><td>Dias do mês (calendário)</td>
+      <td class="num">${totalDiasMes}</td></tr>
+
+  <!-- Ocupação da linha -->
+  <tr><td>Ocupação da linha</td>
+      <td class="num">${
+        (capacidadeMesMin > 0)
+          ? ((totalMinMes / capacidadeMesMin) * 100).toFixed(1) + "%"
+          : "0%"
+      }</td>
+  </tr>
+
+  <!-- Ocupação da equipa -->
+  <tr><td>Ocupação da equipa</td>
+      <td class="num">${
+        (totalDiasMes > 0)
+          ? (((totalMinMes + (m.days * 120)) / (totalDiasMes * 12 * 60)) * 100).toFixed(1) + "%"
+          : "0%"
+      }</td>
+  </tr>
+</tbody>
+  `;
+  container.appendChild(t);
+}
+
+
+  // Ordena meses e renderiza as tabelas
+  monthly.slice().sort((a,b)=>a.month.localeCompare(b.month)).forEach(renderTabela);
+
+  // ---- Utilitário para carregar scripts em sequência ----
+  function loadScript(src){
+    return new Promise((resolve,reject)=>{
+      const el = document.createElement('script');
+      el.src = src;
+      el.onload = ()=>resolve();
+      el.onerror = ()=>reject(new Error('Falha ao carregar: '+src));
+      document.body.appendChild(el);
+    });
+  }
+
+  // ---- Criação dos gráficos (assume Chart.js já carregado) ----
+  function createCharts(){
+    monthly.forEach(m=>{
+      const diasDoMes = diarios.filter(d => d.date && d.date.startsWith(m.month));
+      if (!diasDoMes.length) return;
+
+      const h3 = document.createElement("h3");
+      h3.textContent = `Gráfico diário — ${m.month}`;
+      container.appendChild(h3);
+
+      const c = document.createElement("canvas");
+      c.height = 100;
+      container.appendChild(c);
+
+      new Chart(c, {
+  type: 'line',
+  data: {
+    labels: diasDoMes.map(x => x.date),
+    datasets: [
+      {
+        label: `Peixes/min (${m.month})`,
+        data: diasDoMes.map(x => Math.round(x.fish_per_min || 0)),
+        borderColor: '#0b4ea2',
+        backgroundColor: 'rgba(11,78,162,0.15)',
+        borderWidth: 2,
+        tension: 0.25,
+        pointRadius: 3,
+        pointBackgroundColor: '#0b4ea2'
+      },
+      // <<< NOVO DATASET: linha horizontal com a média mensal >>>
+      {
+        label: `Média mensal (${m.month})`,
+        data: Array(diasDoMes.length).fill(Math.round((m.fish_per_min || 0))),
+        borderColor: '#e53935',              // vermelho para destaque (ajusta à tua paleta)
+        borderWidth: 2,
+        borderDash: [6, 6],                   // linha tracejada
+        pointRadius: 0,                       // sem pontos
+        fill: false,                          // não preencher área
+        tension: 0                            // linha totalmente reta
+      }
+    ]
+  },
+  options: {
+    responsive: true,
+    scales: {
+      x: {
+        beginAtZero: true,
+        title: { display: true, text: 'Dia' }
+      },
+      y: {
+        beginAtZero: true,
+        title: { display: true, text: 'Peixes por minuto' }
+      }
+    }
+  }
+});
+    });
+  }
+
+  // ---- Acrescenta botões de exportação por gráfico (assume export.js já carregado) ----
+  function enhanceChartsOnce(){
+    const canvases = document.querySelectorAll('#container canvas');
+    if(!canvases.length) return;
+
+    canvases.forEach(cv=>{
+      // Evita duplicar
+      if (cv.dataset.enhanced === '1') return;
+      cv.dataset.enhanced = '1';
+
+      // Extrai o mês do <h3> anterior (ex.: "Gráfico diário — 2026-03")
+      let monthLabel = 'grafico';
+      const prev = cv.previousElementSibling;
+      if(prev && prev.tagName === 'H3'){
+        monthLabel = prev.textContent.replace('Gráfico diário — ','').trim();
+      }
+
+      // Barra com botões por gráfico
+      const bar = document.createElement('div');
+      bar.style.margin='6px 0 18px';
+      bar.style.display='flex';
+      bar.style.gap='8px';
+
+      const bCsv=document.createElement('button'); bCsv.className='flat-btn'; bCsv.textContent='Exportar CSV (Gráfico)';
+      const bPng=document.createElement('button'); bPng.className='flat-btn'; bPng.textContent='Exportar PNG (Gráfico)';
+      bar.appendChild(bCsv); bar.appendChild(bPng);
+      cv.parentNode.insertBefore(bar, cv.nextSibling);
+
+      // PNG
+      bPng.onclick = ()=>Export.downloadPNGFromCanvas(cv, 'mensal_'+monthLabel);
+
+      // CSV a partir dos dados diários (Dia; Peixes/min)
+      bCsv.onclick = ()=>{
+        try{
+          const IND = window.__indicadores||{};
+          const dataDiaria = IND.data||[];
+          const diasDoMes = dataDiaria.filter(d=> String(d.date||'').startsWith(monthLabel));
+          if(!diasDoMes.length){ alert('Não foi possível obter dados para '+monthLabel); return; }
+          const headers = ['Dia','Peixes por minuto'];
+          const rows = diasDoMes.map(x=>[x.date, Math.round(x.fish_per_min||0)]);
+          Export.downloadCSVFromData(headers, rows, 'mensal_'+monthLabel+'_grafico');
+        }catch(e){
+          alert('Falha ao exportar CSV do gráfico: '+e.message);
+        }
+      };
+    });
+  }
+
+  // ---- Inicialização sequencial (com estado visual de atualização) ----
+  (async function init(){
+    try{
+      // Estado visual de carga
+      statusEl.textContent = "A atualizar…";
+      statusEl.classList.add("loading");
+
+      // 1) Carregar Chart.js
+      await loadScript("https://cdn.jsdelivr.net/npm/chart.js");
+
+      // 2) Criar gráficos
+      createCharts();
+
+      // 3) Carregar export.js
+      await loadScript("export.js?v=1");
+
+      // 4) Melhorar gráficos com botões CSV/PNG (uma única vez)
+      enhanceChartsOnce();
+
+      // 5) Ligar botão global de export das tabelas (com feedback visual)
+      const btn = document.getElementById('btnExportMensalTab');
+      if (btn){
+        btn.onclick = function(){
+          const tables = document.querySelectorAll('#container table');
+          if(!tables.length){ alert('Sem tabelas para exportar.'); return; }
+          // feedback de estado curto
+          statusEl.textContent = "A preparar exportação…";
+          statusEl.classList.add("loading");
+          try {
+            let i=1;
+            tables.forEach(t => Export.downloadCSVFromTable(t, 'mensal_'+(i++)));
+          } finally {
+            // devolver estado normal
+            statusEl.textContent = "Atualizado " + new Date().toLocaleString();
+            statusEl.classList.remove("loading");
+          }
+        };
+      }
+
+    }catch(err){
+      console.error(err);
+      alert('Falha na inicialização dos gráficos/exports: ' + err.message);
+      statusEl.textContent = "Erro a inicializar";
+    }finally{
+      // Estado final
+      statusEl.textContent = "Atualizado " + new Date().toLocaleString();
+      statusEl.classList.remove("loading");
+    }
+  })();
+  </script>
+<script>
+function logout() {
+    window.location.href = "/logout";
+}
+
+// Atualiza estado visual
+function setLoginStatus() {
+    const el = document.getElementById("loginStatus");
+    if (el) el.textContent = "(sessão ativa)";
+}
+
+setLoginStatus();
+</script>
+
+</body>
+</html>

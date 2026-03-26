@@ -1,0 +1,535 @@
+<!doctype html>
+<html lang="pt">
+<head>
+  <meta charset="utf-8" />
+  <title>Paragens – Flatlantic</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <style>
+    :root{
+      --flat-blue:#0b4ea2;
+      --flat-blue-dark:#083d7f;
+    }
+
+    body { font-family: Arial, sans-serif; margin: 24px; background: #f2f5f9; }
+
+    .topbar {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      margin-bottom: 16px;
+      flex-wrap: wrap;
+    }
+    .logo-flatlantic{ height: 32px; }
+
+    .nav{ display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+
+    .pill{
+      background: var(--flat-blue);
+      color:white;
+      border:none;
+      border-radius:12px;
+      padding:8px 14px;
+      cursor:pointer;
+      font-weight:600;
+    }
+    .pill:hover{ background:var(--flat-blue-dark); }
+    .pill.active{
+      background:#0a6be6;
+      box-shadow:0 0 0 2px white inset,0 0 0 2px #0a6be6;
+    }
+
+    .status-badge{
+      background:var(--flat-blue);
+      color:white;
+      border-radius:8px;
+      padding:4px 8px;
+      font-size:12px;
+      white-space:nowrap;
+    }
+
+    .status-badge.loading{
+      background:#ff9800;
+      animation:pulse 1s infinite;
+    }
+    @keyframes pulse{
+      0%{opacity:1}
+      50%{opacity:.5}
+      100%{opacity:1}
+    }
+
+    h2{
+      margin-top:35px;
+      color:#0b4ea2;
+      font-size:20px;
+      border-bottom:2px solid #0b4ea2;
+      padding-bottom:4px;
+      width:fit-content;
+    }
+
+    table{
+      width:100%;
+      border-collapse:collapse;
+      background:white;
+      margin-top:12px;
+      margin-bottom:25px;
+      box-shadow:0 2px 4px rgba(0,0,0,0.06);
+    }
+    th,td{
+      padding:8px;
+      border:1px solid #d6d9de;
+      font-size:14px;
+    }
+    th{ background:#e7e7e7; font-weight:bold; }
+    td.num { text-align:right; }
+
+    tr.paragem     { background:#fff8c6; }
+    tr.almoco      { background:#ffd4d4; }
+    tr.avaria      { background:#ffe2b8; }
+    tr.manutencao  { background:#e7ffe7; }
+    tr.total-row   { background:#dfe9ff; font-weight:bold; }
+
+    .saveBtn{
+      padding:4px 8px;
+      background:var(--flat-blue);
+      color:white;
+      border:none;
+      border-radius:4px;
+      cursor:pointer;
+    }
+    .saveBtn:hover{ background:var(--flat-blue-dark); }
+
+    .reporBtn{
+      margin-left:6px;
+      padding:4px 8px;
+      background:#888;
+      color:white;
+      border:none;
+      border-radius:4px;
+      cursor:pointer;
+    }
+    .reporBtn:hover{ background:#666; }
+
+    .ok  { color:#2e7d32; font-size:12px; margin-left:6px; }
+    .err { color:#b00020; font-size:12px; margin-left:6px; }
+
+    .typeInput { width:180px; }
+
+    button.flat-btn{
+      padding:8px 16px;
+      background:var(--flat-blue);
+      color:white;
+      border:none;
+      border-radius:6px;
+      cursor:pointer;
+      font-weight:bold;
+    }
+    button.flat-btn:hover { background: var(--flat-blue-dark); }
+  </style>
+</head>
+
+<body data-page="paragens">
+
+<div class="topbar">
+
+    <img src="FlatlanticLogo.jpg?v=1" class="logo-flatlantic" alt="Flatlantic">
+
+    <div class="nav">
+        <button class="pill" data-link="dashboard" onclick="go('dashboard.html')">Indicadores Diários</button>
+        <button class="pill" data-link="mensal" onclick="go('mensal.html')">Indicadores Mensais</button>
+        <button class="pill" data-link="paragens" onclick="go('paragens.html')">Paragens</button>
+        <button class="pill" data-link="totais" onclick="go('totais.html')">Totais por Lote</button>
+        <span id="status" class="status-badge">Atualizado …</span>
+    </div>
+
+    <!-- ✅ BLOCO DE LOGIN/LOGOUT, sempre no fim e alinhado à direita -->
+    <div class="auth-box" style="margin-left:auto; display:flex; gap:12px; align-items:center;">
+        <span id="loginStatus" style="color:#0b4ea2; font-weight:bold;">(sessão ativa)</span>
+        <button onclick="logout()" class="pill" style="background:#d9534f;">Logout</button>
+    </div>
+
+</div>
+
+  <div id="container"></div>
+
+  <script src="indicadores.js"></script>
+
+  <script>
+  function go(h){ window.location.href=h; }
+  function markActiveFromBody(){
+    const c=document.body.getAttribute('data-page');
+    if(c) document.querySelector(`.nav .pill[data-link="${c}"]`)?.classList.add('active');
+  }
+  markActiveFromBody();
+
+  const statusEl=document.getElementById('status');
+
+  function hhmm(iso){
+    const d=new Date(iso);
+    if(isNaN(d)) return "";
+    return String(d.getHours()).padStart(2,"0")+":"+String(d.getMinutes()).padStart(2,"0");
+  }
+  function getPeriodoLS(){
+    const inicio=localStorage.getItem("periodo_inicio");
+    const fim   =localStorage.getItem("periodo_fim");
+    return (inicio && fim) ? {inicio,fim} : null;
+  }
+  function getPeriodoFromStops(STOPS){
+    const dias=Object.keys(STOPS).sort();
+    if(!dias.length) return null;
+    return {inicio:dias[0], fim:dias[dias.length-1]};
+  }
+
+  function classFromType(t){
+    const raw=String(t||"").toLowerCase();
+    if(raw.includes("almo")) return "almoco";
+    if(raw.includes("avaria")) return "avaria";
+    if(raw.includes("manut")) return "manutencao";
+    return "paragem";
+  }
+
+  async function applyOverridesOnClient(STOPS){
+    try{
+      const r=await fetch("/paragens/overrides");
+      const j=await r.json();
+      if(!r.ok||!j.ok) return;
+      const ovr=j.overrides||{};
+      for(const dia of Object.keys(ovr)){
+        const mapDia=ovr[dia];
+        const arr=STOPS[dia];
+        if(!arr||!mapDia) continue;
+        arr.forEach(st=>{
+          if(mapDia[st.id]) st.type=mapDia[st.id];
+        });
+      }
+    }catch(e){ console.warn("Falha override:",e.message); }
+  }
+(async function initParagens(){
+
+    const IND = window.__indicadores || {};
+    const STOPS = IND.stops || {};
+    const dias = Object.keys(STOPS).sort();
+    const container=document.getElementById("container");
+
+// ✅ NOVO RESUMO GLOBAL DO MÊS
+(function buildMonthlySummary(){
+
+    const allDays = Object.keys(STOPS).sort();
+    if (!allDays.length) return;
+
+    // -- total paragens do mês
+    let totalParagensMes = 0;
+
+    // -- total minutos parados no mês
+    let totalMinutosMes = 0;
+
+    // -- por tipo
+    const porTipo = {};
+
+    for (const dia of allDays) {
+        const arr = STOPS[dia] || [];
+        for (const st of arr) {
+            totalParagensMes++;
+            totalMinutosMes += st.minutes || 0;
+
+            const tipo = (st.type || "Outro").toLowerCase();
+            porTipo[tipo] = (porTipo[tipo] || 0) + (st.minutes || 0);
+        }
+    }
+
+    const numDias = allDays.length;
+    const mediaParagensDia = (totalParagensMes / numDias).toFixed(1);
+    const mediaMinutosDia = (totalMinutosMes / numDias).toFixed(1);
+
+    // ✅ Criar elemento visual
+    const div = document.createElement("div");
+    div.style.background = "#ffffff";
+    div.style.padding = "16px";
+    div.style.border = "1px solid #d6d9de";
+    div.style.borderRadius = "8px";
+    div.style.marginBottom = "20px";
+    div.style.boxShadow = "0 2px 4px rgba(0,0,0,0.06)";
+
+    // ✅ ORDENAR tipos pelo total de minutos (maior → menor)
+const tiposOrdenados = Object.entries(porTipo)
+    .sort((a, b) => b[1] - a[1]);
+
+let tiposHTML = "";
+for (const [tipo, minutos] of tiposOrdenados) {
+    tiposHTML += `
+        <tr>
+            <td>${tipo.charAt(0).toUpperCase() + tipo.slice(1)}</td>
+            <td class="num">${minutos.toFixed(1)} min</td>
+        </tr>
+    `;
+
+    }
+
+    div.innerHTML = `
+        <h2>Resumo Mensal</h2>
+
+        <table>
+            <tr><th>Total de paragens no mês</th><td class="num">${totalParagensMes}</td></tr>
+            <tr><th>Total de tempo parado</th><td class="num">${totalMinutosMes.toFixed(1)} min</td></tr>
+            <tr><th>Média de paragens por dia</th><td class="num">${mediaParagensDia}</td></tr>
+            <tr><th>Tempo médio parado por dia</th><td class="num">${mediaMinutosDia} min</td></tr>
+        </table>
+
+        <h3 style="color:#0b4ea2; margin-top:20px;">Minutos parados por tipo</h3>
+        <table>
+            <thead>
+                <tr><th>Tipo</th><th>Minutos</th></tr>
+            </thead>
+            <tbody>
+                ${tiposHTML}
+            </tbody>
+        </table>
+    `;
+
+    container.appendChild(div);
+
+})();
+
+    // Ativar animação (igual ao dashboard/mensal)
+    statusEl.textContent="A atualizar…";
+    statusEl.classList.add("loading");
+
+    // aplicar overrides
+    await applyOverridesOnClient(STOPS);
+
+    if(dias.length===0){
+      container.innerHTML="<p style='color:#555;'>Não existem paragens no período selecionado.</p>";
+      statusEl.textContent="Atualizado "+new Date().toLocaleString();
+      statusEl.classList.remove("loading");
+      return;
+    }
+
+    dias.forEach(dia=>{
+      const arr=STOPS[dia];
+      if(!arr||!arr.length) return;
+
+      const h2=document.createElement("h2");
+      h2.textContent=dia;
+      container.appendChild(h2);
+
+      const totalParagens=arr.length;
+      const totalMinutos=arr.reduce((s,x)=>s+(x.minutes||0),0);
+
+      const resumo=document.createElement("p");
+      resumo.style.margin="4px 0 10px 0";
+      resumo.style.fontWeight="bold";
+      resumo.innerHTML = `Total de paragens: ${totalParagens} &nbsp;|&nbsp; Total de minutos parado: ${totalMinutos.toFixed(1)} min`;
+      container.appendChild(resumo);
+
+      const table=document.createElement("table");
+      table.innerHTML=`
+        <thead>
+          <tr>
+            <th>Início</th>
+            <th>Fim</th>
+            <th>Duração (min)</th>
+            <th>Tipo (editar)</th>
+            <th>Ações</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      `;
+      const tbody=table.querySelector("tbody");
+
+      arr.forEach(st=>{
+        const tr=document.createElement("tr");
+        tr.classList.add(classFromType(st.type));
+
+        const tdIni=document.createElement("td");
+        tdIni.textContent=hhmm(st.start);
+        tr.appendChild(tdIni);
+
+        const tdFim=document.createElement("td");
+        tdFim.textContent=hhmm(st.end);
+        tr.appendChild(tdFim);
+
+        const tdMin=document.createElement("td");
+        tdMin.classList.add("num");
+        tdMin.textContent=st.minutes;
+        tr.appendChild(tdMin);
+
+        const tdTipo=document.createElement("td");
+        const input=document.createElement("input");
+        input.type="text";
+        input.value=st.type||"";
+        input.className="typeInput";
+        tdTipo.appendChild(input);
+        tr.appendChild(tdTipo);
+
+        const tdA=document.createElement("td");
+        const btnS=document.createElement("button");
+        btnS.className="saveBtn";
+        btnS.textContent="Guardar";
+
+        const btnR=document.createElement("button");
+        btnR.className="reporBtn";
+        btnR.textContent="Repor";
+
+        const info=document.createElement("span");
+
+        tdA.appendChild(btnS);
+        tdA.appendChild(btnR);
+        tdA.appendChild(info);
+        tr.appendChild(tdA);
+
+        // ---- GUARDAR ----
+        btnS.onclick = async ()=>{
+          const novoTipo=(input.value||"").trim();
+          if(!novoTipo){ info.textContent="Tipo em branco"; info.className="err"; return; }
+          statusEl.textContent="A atualizar…";
+          statusEl.classList.add("loading");
+          info.textContent="";
+
+          try{
+            const r=await fetch("http://localhost:3000/paragem/editar",{
+              method:"POST",
+              headers:{"Content-Type":"application/json"},
+              body:JSON.stringify({dia,id:st.id,tipo:novoTipo})
+            });
+            const j=await r.json();
+            if(!r.ok||!j.ok) throw new Error(j.msg);
+
+            // atualizar local
+            st.type=novoTipo;
+            tr.className="";
+            tr.classList.add(classFromType(novoTipo));
+            info.textContent="✔ gravado";
+            info.className="ok";
+
+            const per = getPeriodoLS() || getPeriodoFromStops(STOPS);
+            if(per){
+              const u=new URL("http://localhost:3000/update");
+              u.searchParams.set("inicio",per.inicio);
+              u.searchParams.set("fim",per.fim);
+              await fetch(u.toString());
+            }
+
+            statusEl.textContent="Atualizado "+new Date().toLocaleString();
+            statusEl.classList.remove("loading");
+            setTimeout(()=>window.location.href=`paragens.html?ts=${Date.now()}`,200);
+
+          }catch(e){
+            info.textContent="Erro: "+e.message;
+            info.className="err";
+            statusEl.textContent="Erro";
+            statusEl.classList.remove("loading");
+          }
+        };
+
+        // ---- REPOR ----
+        btnR.onclick = async ()=>{
+          if(!confirm("Repor o tipo original?")) return;
+          statusEl.textContent="A atualizar…";
+          statusEl.classList.add("loading");
+          info.textContent="";
+
+          try{
+            const r=await fetch(
+              `http://localhost:3000/paragem/editar/${encodeURIComponent(dia)}/${encodeURIComponent(st.id)}`,
+              {method:"DELETE"}
+            );
+            const j=await r.json();
+            if(!r.ok||!j.ok) throw new Error(j.msg);
+
+            info.textContent="✔ reposto";
+            info.className="ok";
+
+            const per=getPeriodoLS() || getPeriodoFromStops(STOPS);
+            if(per){
+              const u=new URL("http://localhost:3000/update");
+              u.searchParams.set("inicio",per.inicio);
+              u.searchParams.set("fim",per.fim);
+              await fetch(u.toString());
+            }
+
+            statusEl.textContent="Atualizado "+new Date().toLocaleString();
+            statusEl.classList.remove("loading");
+            setTimeout(()=>window.location.href=`paragens.html?ts=${Date.now()}`,200);
+
+          }catch(e){
+            info.textContent="Erro: "+e.message;
+            info.className="err";
+            statusEl.textContent="Erro";
+            statusEl.classList.remove("loading");
+          }
+        };
+
+        tbody.appendChild(tr);
+      });
+
+      // total
+      const trTot=document.createElement("tr");
+      trTot.classList.add("total-row");
+      trTot.innerHTML=`
+        <td colspan="2">TOTAL</td>
+        <td class="num">${totalMinutos.toFixed(1)}</td>
+        <td colspan="2">${totalParagens} paragens</td>
+      `;
+      tbody.appendChild(trTot);
+
+      container.appendChild(table);
+    });
+
+    statusEl.textContent="Atualizado "+new Date().toLocaleString();
+    statusEl.classList.remove("loading");
+
+  })();
+</script>
+
+<!-- Exportações -->
+<div id="exportBarParagens" style="margin:16px 0; display:flex; gap:8px; flex-wrap:wrap;">
+  <button id="btnExportAllStops" class="flat-btn">Exportar CSV (Todas as tabelas)</button>
+</div>
+
+<script>
+(function(){
+  const btnAll=document.getElementById('btnExportAllStops');
+  btnAll.onclick = ()=>{
+    const container=document.getElementById('container');
+    const tables=container.querySelectorAll('table');
+    if(!tables.length){ alert('Sem tabelas.'); return; }
+
+    statusEl.textContent="A preparar exportação…";
+    statusEl.classList.add("loading");
+
+    try{
+      let i=1;
+      tables.forEach(t=>{
+        let day='paragens_'+(i++);
+        let prev=t.previousElementSibling;
+        while(prev && prev.tagName!=='H2'){ prev=prev.previousElementSibling; }
+        if(prev) day=prev.textContent.trim();
+        Export.downloadCSVFromTable(t,'paragens_'+day);
+      });
+    } finally {
+      statusEl.textContent="Atualizado "+new Date().toLocaleString();
+      statusEl.classList.remove("loading");
+    }
+  };
+
+})();
+</script>
+
+<script src="export.js?v=1"></script>
+
+<script>
+function logout() {
+    window.location.href = "/logout";
+}
+
+// Atualiza estado visual
+function setLoginStatus() {
+    const el = document.getElementById("loginStatus");
+    if (el) el.textContent = "(sessão ativa)";
+}
+
+setLoginStatus();
+</script>
+
+</body>
+</html>

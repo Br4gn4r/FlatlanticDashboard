@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+    <meta charset="UTF-8">
+    <title>Login – Flatlantic</title>
+    <style>
+        body {
+            display:flex;
+            justify-content:center;
+            align-items:center;
+            height:100vh;
+            background:#e8f2ff;
+            font-family:Arial, sans-serif;
+            margin:0;
+        }
+        .box {
+            background:white;
+            padding:40px 50px;
+            border-radius:12px;
+            text-align:center;
+            box-shadow:0 0 20px rgba(0,0,0,0.15);
+            width:400px;
+        }
+
+        /* ✅ TÍTULO PRINCIPAL – MAIOR, AZUL E CENTRADO */
+        h1 {
+            color:#0b4ea2;
+            font-size:48px;      /* aumentei aqui 👍 */
+            font-weight:800;
+            margin-top:0;
+            margin-bottom:25px;
+        }
+
+        /* ✅ LOGO */
+        .logo {
+            height:30px;         /* aumentei ligeiramente */
+            margin-bottom:20px;
+        }
+
+        /* ✅ PASSWORD MAIS PEQUENA E CENTRADA */
+        .input-wrap {
+            display:flex;
+            justify-content:center;
+        }
+
+        input {
+            padding:8px 10px;
+            width:65%;           /* MAIS PEQUENO e centrado 👌 */
+            border:1px solid #aaa;
+            border-radius:6px;
+            font-size:15px;
+            text-align:center;
+        }
+
+        button {
+            padding:10px;
+            width:65%;
+            background:#0b4ea2;
+            color:white;
+            border:none;
+            border-radius:6px;
+            font-size:16px;
+            cursor:pointer;
+            margin-top:12px;
+        }
+        button:hover {
+            background:#083d7f;
+        }
+
+        #erro {
+            color:red;
+            margin-top:10px;
+            display:none;
+        }
+    </style>
+</head>
+<body>
+
+<div class="box">
+
+    <!-- ✅ TÍTULO GRANDE A AZUL -->
+    <h1>Indicadores de Processamento</h1>
+
+    <!-- ✅ LOGO -->
+	<img src="FlatlanticLogo.jpg?v=1" class="logo">
+
+    <h2 style="margin-top:10px;">Autenticação</h2>
+
+    <!-- ✅ PASSWORD + CENTRALIZAÇÃO -->
+    <div class="input-wrap">
+        <input id="pass" type="password" placeholder="Password">
+    </div>
+
+    <button onclick="login()">Entrar</button>
+
+    <div id="erro">Password incorreta</div>
+</div>
+
+<script>
+async function login() {
+    const password = document.getElementById("pass").value;
+
+    const r = await fetch("/api/login", {
+        method:"POST",
+        headers:{ "Content-Type":"application/json" },
+        body:JSON.stringify({ password })
+    });
+
+    const j = await r.json();
+
+    if (j.ok) {
+        window.location.href = "dashboard.html";
+    } else {
+        document.getElementById("erro").style.display = "block";
+    }
+}
+</script>
+
+</body>
+</html>

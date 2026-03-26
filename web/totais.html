@@ -1,0 +1,210 @@
+<!doctype html>
+<html lang="pt">
+<head>
+<meta charset="utf-8" />
+<title>Totais por Lote – Flatlantic</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+
+<style>
+  :root{ --flat-blue:#0b4ea2; --flat-blue-dark:#083d7f; }
+  body { font-family: Arial, sans-serif; margin: 24px; background: #f2f5f9; }
+
+  .topbar { display:flex; align-items:center; gap:16px; margin-bottom:16px; flex-wrap:wrap; }
+  .logo-flatlantic{ height:32px; vertical-align:middle; }
+  .nav{ display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+  .pill{ background:var(--flat-blue); color:#fff; border:none; border-radius:12px; padding:8px 14px; cursor:pointer; font-weight:600; }
+  .pill:hover{ background:var(--flat-blue-dark); }
+  .pill.active{ background:#0a6be6; box-shadow:0 0 0 2px #fff inset, 0 0 0 2px #0a6be6; }
+
+  .status-badge{
+    background:var(--flat-blue);
+    color:#fff;
+    border-radius:8px;
+    padding:4px 8px;
+    font-size:12px;
+    white-space:nowrap;
+  }
+
+  /* animação global igual ao dashboard/mensal/paragens */
+  .status-badge.loading{
+    background:#ff9800;
+    animation:pulse 1s infinite;
+  }
+  @keyframes pulse{
+    0%{opacity:1}
+    50%{opacity:.5}
+    100%{opacity:1}
+  }
+
+  .controls { display:flex; gap:12px; align-items:center; margin-bottom:16px; flex-wrap:wrap; }
+  input[type="date"] { padding:6px 8px; border:1px solid #ccc; border-radius:6px; background:#fff; }
+  button.flat-btn { padding:8px 16px; background:var(--flat-blue); color:white; border:none; border-radius:6px; cursor:pointer; font-weight:bold; }
+  button.flat-btn:hover { background:var(--flat-blue-dark); }
+
+  table { width: 100%; border-collapse: collapse; background: white; margin-top: 6px; }
+  th, td { padding: 8px; border: 1px solid #d6d9de; font-size: 14px; }
+  th { background: #e7e7e7; font-weight: bold; }
+  td.num { text-align: right; }
+</style>
+</head>
+
+<body data-page="totais">
+
+  <!-- TOPBAR -->
+<div class="topbar">
+
+    <img src="FlatlanticLogo.jpg?v=1" class="logo-flatlantic" alt="Flatlantic">
+
+    <div class="nav">
+        <button class="pill" data-link="dashboard" onclick="go('dashboard.html')">Indicadores Diários</button>
+        <button class="pill" data-link="mensal" onclick="go('mensal.html')">Indicadores Mensais</button>
+        <button class="pill" data-link="paragens" onclick="go('paragens.html')">Paragens</button>
+        <button class="pill" data-link="totais" onclick="go('totais.html')">Totais por Lote</button>
+        <span id="status" class="status-badge">Atualizado …</span>
+    </div>
+
+    <!-- ✅ BLOCO DE LOGIN/LOGOUT, sempre no fim e alinhado à direita -->
+    <div class="auth-box" style="margin-left:auto; display:flex; gap:12px; align-items:center;">
+        <span id="loginStatus" style="color:#0b4ea2; font-weight:bold;">(sessão ativa)</span>
+        <button onclick="logout()" class="pill" style="background:#d9534f;">Logout</button>
+    </div>
+
+</div>
+  <div class="controls">
+    <label for="diaSelecionado">Escolha o dia:</label>
+    <input type="date" id="diaSelecionado">
+    <button class="flat-btn" id="btnGerar">Gerar Totais</button>
+  </div>
+
+  <div id="msg"></div>
+
+  <table id="tblTotais" style="display:none;">
+    <thead>
+      <tr>
+        <th>Lote</th>
+        <th>Lower (g)</th>
+        <th>Upper (g)</th>
+        <th>Product Count</th>
+        <th>Batch Weight (kg)</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+
+<script src="indicadores.js"></script>
+
+<script>
+function go(h){ location.href=h; }
+function markActiveFromBody(){
+  const current=document.body.getAttribute('data-page');
+  if(!current) return;
+  const btn=document.querySelector(`.nav .pill[data-link="${current}"]`);
+  if(btn) btn.classList.add('active');
+}
+markActiveFromBody();
+
+const statusEl = document.getElementById('status');
+const totais   = window.__indicadores?.totais || {};
+const tabela   = document.getElementById("tblTotais");
+const tbody    = tabela.querySelector("tbody");
+const msg      = document.getElementById("msg");
+
+document.getElementById("btnGerar").onclick = () => {
+  const dia = document.getElementById("diaSelecionado").value;
+
+  if (!dia) {
+    msg.textContent = "Escolha um dia válido.";
+    tabela.style.display = "none";
+    return;
+  }
+
+  const dados = totais[dia];
+  if (!dados) {
+    msg.textContent = "Não existem totais para este dia.";
+    tabela.style.display = "none";
+    return;
+  }
+
+  // ATIVA a animação
+  statusEl.textContent = "A atualizar…";
+  statusEl.classList.add("loading");
+
+  msg.textContent = "";
+  tabela.style.display = "table";
+  tbody.innerHTML = "";
+
+  dados.forEach(row => {
+    const tr = document.createElement("tr");
+    ["Lot number","Lower (g)","Upper (g)","product count","Batch Weight (kg)"].forEach(key => {
+      const td = document.createElement("td");
+      const v = row[key];
+      td.textContent = (v ?? "");
+      if (typeof v === "number") td.classList.add("num");
+      tr.appendChild(td);
+    });
+    tbody.appendChild(tr);
+  });
+
+  // DESATIVA a animação
+  statusEl.textContent = "Atualizado " + new Date().toLocaleString();
+  statusEl.classList.remove("loading");
+};
+
+// ⇒ Pré-seleciona último dia disponível ao abrir a página
+(function preset(){
+  const dias = Object.keys(totais).sort();
+  if (dias.length) {
+    document.getElementById("diaSelecionado").value = dias[dias.length-1];
+  }
+  statusEl.textContent = "Atualizado " + new Date().toLocaleString();
+})();
+</script>
+
+<!-- Export toolbar -->
+<div id="exportBarTotais" style="margin:16px 0; display:flex; gap:8px; flex-wrap:wrap;">
+  <button id="btnExportTotais" class="flat-btn">Exportar CSV (Totais da Tabela)</button>
+</div>
+
+<script>
+(function(){
+  const btn = document.getElementById('btnExportTotais');
+  btn && (btn.onclick = function(){
+    const tbl = document.getElementById('tblTotais');
+    if (!tbl || tbl.style.display==='none') {
+      alert('Gera a tabela primeiro.');
+      return;
+    }
+
+    // feedback visual
+    statusEl.textContent="A preparar exportação…";
+    statusEl.classList.add("loading");
+
+    try {
+      Export.downloadCSVFromTable(tbl, 'totais_por_lote');
+    } 
+    finally {
+      statusEl.textContent = "Atualizado " + new Date().toLocaleString();
+      statusEl.classList.remove("loading");
+    }
+  });
+})();
+</script>
+
+<script src="export.js?v=1"></script>
+
+<script>
+function logout() {
+    window.location.href = "/logout";
+}
+
+// Atualiza estado visual
+function setLoginStatus() {
+    const el = document.getElementById("loginStatus");
+    if (el) el.textContent = "(sessão ativa)";
+}
+
+setLoginStatus();
+</script>
+
+</body>
+</html>

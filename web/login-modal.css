@@ -1,0 +1,78 @@
+/* Fundo azul translúcido */
+#login-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 128, 192, 0.45);
+    backdrop-filter: blur(4px);
+    justify-content: center;
+    align-items: center;
+    z-index: 9999;
+}
+
+/* Caixa branca do modal */
+#login-box {
+    background: white;
+    padding: 30px 40px;
+    border-radius: 12px;
+    width: 320px;
+    text-align: center;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.25);
+    animation: fadeIn .3s ease-out;
+}
+
+.login-logo {
+    width: 48px;
+    margin-bottom: 10px;
+}
+
+#login-box h2 {
+    font-family: Arial;
+    color: #0077b6;
+    margin-bottom: 20px;
+}
+
+/* Campo password */
+#login-password {
+    width: 100%;
+    padding: 10px;
+    border-radius: 6px;
+    border: 1px solid #0077b6;
+    margin-bottom: 15px;
+    font-size: 16px;
+}
+
+/* Botão */
+#login-box button {
+    background: #0080c0;
+    color: white;
+    border: none;
+    padding: 10px 14px;
+    border-radius: 6px;
+    width: 100%;
+    cursor: pointer;
+    font-size: 16px;
+}
+
+#login-box button:hover {
+    background: #006a9c;
+}
+
+/* Erro */
+#login-error {
+    display: none;
+    margin-top: 10px;
+    color: red;
+    font-size: 14px;
+}
+
+/* Suavidade */
+@keyframes fadeIn {
+    from { opacity: 0; transform: scale(0.93); }
+    to { opacity: 1; transform: scale(1); }
+}
+
+/* Blur da página quando modal está ativo */
+body.blurred *:not(#login-overlay):not(#login-box):not(#login-overlay *) {
+    filter: blur(3px);
+}

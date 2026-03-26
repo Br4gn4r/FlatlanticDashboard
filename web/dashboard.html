@@ -1,0 +1,388 @@
+<!doctype html>
+<html lang="pt">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <title>Indicadores Diários – Flatlantic</title>
+
+  <style>
+    .hidden { display:none !important; }
+
+    :root{
+      --flat-blue:#0b4ea2;
+      --flat-blue-dark:#083d7f;
+    }
+    body {
+      font-family: Arial, sans-serif;
+      margin: 24px;
+      background: #f2f5f9;
+    }
+
+    /* TOPBAR */
+    .topbar {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      margin-bottom: 16px;
+      flex-wrap: wrap;
+    }
+    .logo-flatlantic{
+      height: 32px;
+    }
+    .nav{
+      display:flex;
+      gap:10px;
+      align-items:center;
+      flex-wrap:wrap;
+    }
+    .pill{
+      background: var(--flat-blue);
+      color:white;
+      border:none;
+      border-radius:12px;
+      padding:8px 14px;
+      cursor:pointer;
+      font-weight:600;
+    }
+    .pill:hover{ background:var(--flat-blue-dark); }
+    .pill.active {
+      background:#0a6be6;
+      box-shadow:0 0 0 2px white inset,0 0 0 2px #0a6be6;
+    }
+    .status-badge{
+      background:var(--flat-blue);
+      color:white;
+      border-radius:8px;
+      padding:4px 8px;
+      font-size:12px;
+      white-space:nowrap;
+    }
+    .status-badge.loading{
+      background:#ff9800;
+      animation:pulse 1s infinite;
+    }
+    @keyframes pulse{
+      0%{opacity:1}
+      50%{opacity:.5}
+      100%{opacity:1}
+    }
+
+    /* Barra superior */
+    .bar {
+      display:flex;
+      gap:12px;
+      align-items:center;
+      flex-wrap:wrap;
+      margin-bottom:18px;
+    }
+
+    input[type="date"] {
+      padding:6px 8px;
+      border:1px solid #ccc;
+      border-radius:6px;
+      background:#fff;
+    }
+
+    button.flat-btn {
+      padding:8px 16px;
+      background:var(--flat-blue);
+      color:white;
+      border:none;
+      border-radius:6px;
+      cursor:pointer;
+      font-weight:bold;
+    }
+    button.flat-btn:hover { background: var(--flat-blue-dark); }
+
+    /* Tabela */
+    table {
+      width:100%;
+      border-collapse:collapse;
+      background:white;
+    }
+    th, td {
+      padding:8px;
+      border:1px solid #d6d9de;
+      font-size:13px;
+    }
+    th { background:#e7e7e7; font-weight:bold; position:sticky; top:0; }
+    td.num { text-align:right; }
+    td.bold { font-weight:700; }
+
+    /* Ajustes */
+    .ajustes-box {
+      display:flex;
+      flex-wrap:wrap;
+      gap:12px;
+      background:#fff;
+      padding:12px 14px;
+      border:1px solid #d6d9de;
+      border-radius:8px;
+    }
+    .aj-title {
+      color:var(--flat-blue);
+      font-weight:700;
+      flex-basis:100%;
+      margin-bottom:4px;
+    }
+    .aj-row {
+      display:flex;
+      flex-direction:column;
+      gap:4px;
+      width:160px;
+    }
+    .aj-row.full {
+      flex-basis:100%;
+      width:100%;
+    }
+    .aj-row input, .aj-row select {
+      padding:6px 8px;
+      border:1px solid #ccc;
+      border-radius:6px;
+      background:#fff;
+    }
+    .aj-msg{
+      font-size:12px;
+      color:#333;
+      padding-left:8px;
+      align-self:center;
+    }
+  </style>
+</head>
+
+<body data-page="dashboard">
+
+  <!-- TOPBAR -->
+  <div class="topbar">
+
+    <img src="FlatlanticLogo.jpg?v=1" class="logo-flatlantic" alt="Flatlantic">
+
+    <div class="nav">
+        <button class="pill" data-link="dashboard" onclick="go('dashboard.html')">Indicadores Diários</button>
+        <button class="pill" data-link="mensal" onclick="go('mensal.html')">Indicadores Mensais</button>
+        <button class="pill" data-link="paragens" onclick="go('paragens.html')">Paragens</button>
+        <button class="pill" data-link="totais" onclick="go('totais.html')">Totais por Lote</button>
+        <span id="status" class="status-badge">Atualizado …</span>
+    </div>
+
+    <!-- AUTH -->
+    <div class="auth-box" style="margin-left:auto; display:flex; gap:12px; align-items:center;">
+        <span id="loginStatus" style="color:#0b4ea2; font-weight:bold;">(sessão ativa)</span>
+        <button onclick="logout()" class="pill" style="background:#d9534f;">Logout</button>
+    </div>
+
+  </div>
+
+  <!-- BARRA SUPERIOR -->
+  <div class="bar">
+    <label>Data início:</label>
+    <input type="date" id="dataInicio">
+
+    <label>Data fim:</label>
+    <input type="date" id="dataFim">
+
+    <!-- UPLOAD -->
+    <label>Ficheiro de dados:</label>
+
+    <input type="file" id="dadosFile" style="display:none;" onchange="ficheiroSelecionado()">
+
+    <button type="button" id="btnSelectFile" class="flat-btn" style="background:#666;">Selecionar ficheiro</button>
+
+    <span id="ficheiroEstado" style="margin-left:10px; color:#0b4ea2; font-weight:bold;"></span>
+
+    <!-- BOTÃO PRINCIPAL -->
+    <button id="btn" class="flat-btn">Carregar</button>
+  </div>
+
+  <!-- Tabela principal -->
+  <table id="tbl">
+    <thead>
+      <tr>
+        <th>Data</th>
+        <th>Tempo total (min)</th>
+        <th>Total Paragens (min)</th>
+        <th>Processamento (min)</th>
+        <th>Total (pxs)</th>
+        <th>Total (kg)</th>
+        <th>Pregado (pxs)</th>
+        <th>Pregado (kg)</th>
+        <th>Linguado (pxs)</th>
+        <th>Linguado (kg)</th>
+        <th>Evisc. (pxs)</th>
+        <th>Evisc. (kg)</th>
+        <th>Filetes (pxs)</th>
+        <th>Filetes (kg)</th>
+        <th>Postas (pxs)</th>
+        <th>Postas (kg)</th>
+        <th>Total lotes</th>
+        <th>Referências</th>
+        <th>Início</th>
+        <th>Fim</th>
+        <th>Peixes p/min</th>
+        <th>Total paragens</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+
+  <script src="indicadores.js"></script>
+
+  <!-- JS PRINCIPAL -->
+  <script>
+function go(h){ window.location.href = h; }
+
+function markActiveFromBody() {
+  const current = document.body.getAttribute('data-page');
+  if (!current) return;
+  const btn = document.querySelector(`.nav .pill[data-link="${current}"]`);
+  if (btn) btn.classList.add('active');
+}
+markActiveFromBody();
+
+const tbody   = document.querySelector('#tbl tbody');
+const statusEl= document.getElementById('status');
+const btn     = document.getElementById('btn');
+const inpIni  = document.getElementById('dataInicio');
+const inpFim  = document.getElementById('dataFim');
+
+// BOTÃO SELECIONAR FICHEIRO
+document.getElementById("btnSelectFile").onclick = () => {
+  document.getElementById("dadosFile").click();
+};
+
+function ficheiroSelecionado() {
+    const f = document.getElementById("dadosFile").files[0];
+    const est = document.getElementById("ficheiroEstado");
+    est.textContent = f ? "Ficheiro selecionado" : "";
+}
+
+async function uploadDados() {
+  const f = document.getElementById("dadosFile").files[0];
+  if (!f) return true;
+
+  const form = new FormData();
+  form.append("file", f);
+
+  const r = await fetch("/api/upload", { method:"POST", body:form });
+  const j = await r.json();
+  return j.ok === true;
+}
+
+const order = [
+  'date','span_min','total_stop_min','proc_min',
+  'total_fish','total_kg',
+  'pregado_fish','pregado_kg',
+  'linguado_fish','linguado_kg',
+  'evi_fish','evi_kg',
+  'filete_fish','filete_kg',
+  'posta_fish','posta_kg',
+  'total_lots','total_refs',
+  'start_time','end_time',
+  'fish_per_min','stops_count'
+];
+
+function fmtTime(v){
+  const d = new Date(v);
+  return isNaN(d) ? "" :
+    String(d.getHours()).padStart(2,'0') + ":" +
+    String(d.getMinutes()).padStart(2,'0');
+}
+
+function render(rows){
+  tbody.innerHTML="";
+  rows.forEach(r=>{
+    const tr=document.createElement("tr");
+    order.forEach(k=>{
+      const td=document.createElement("td");
+      let v=r[k];
+
+      if(k==="start_time"||k==="end_time") v=fmtTime(v);
+      if(["span_min","total_stop_min","proc_min"].includes(k)) v=Math.round(v);
+
+      if(k==="fish_per_min"){
+        td.classList.add("bold","num");
+        td.textContent = Math.round(v);
+        tr.appendChild(td);
+        return;
+      }
+
+      if(typeof v==="number") td.classList.add("num");
+      td.textContent = v ?? "";
+      tr.appendChild(td);
+    });
+    tbody.appendChild(tr);
+  });
+}
+
+function toISO(d){
+  return new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,10);
+}
+
+function loadPeriodo(){
+  const a=localStorage.getItem("periodo_inicio");
+  const b=localStorage.getItem("periodo_fim");
+  if(a && b) return {inicio:a,fim:b};
+  const t=new Date();
+  const f=new Date(); f.setDate(t.getDate()-6);
+  return {inicio:toISO(f),fim:toISO(t)};
+}
+
+btn.onclick = async () => {
+
+  const okUpload = await uploadDados();
+  if (!okUpload) {
+      alert("Falha ao enviar ficheiro!");
+      return;
+  }
+
+  const inicio=inpIni.value;
+  const fim   =inpFim.value;
+  if(!inicio||!fim) return alert("Escolhe as duas datas.");
+  if(inicio>fim) return alert("Data início maior que fim.");
+
+  statusEl.textContent="A atualizar…";
+  statusEl.classList.add("loading");
+  btn.disabled=true;
+
+  localStorage.setItem("periodo_inicio",inicio);
+  localStorage.setItem("periodo_fim",fim);
+
+  try{
+    await fetch(`/update?inicio=${inicio}&fim=${fim}`);
+    statusEl.textContent="Atualizado " + new Date().toLocaleString();
+    statusEl.classList.remove("loading");
+    location.reload();
+  }catch(e){
+    statusEl.textContent="Erro ao contactar servidor.";
+    statusEl.classList.remove("loading");
+    btn.disabled=false;
+  }
+};
+
+(function init(){
+  const {inicio,fim}=loadPeriodo();
+  inpIni.value=inicio;
+  inpFim.value=fim;
+
+  const rows=(window.__indicadores?.data)||[];
+  render(rows);
+
+  statusEl.textContent="Atualizado " + new Date().toLocaleString();
+})();
+  </script>
+
+  <!-- Logout -->
+  <script>
+    function logout() {
+      window.location.href = "/logout";
+    }
+    function setLoginStatus() {
+      const el = document.getElementById("loginStatus");
+      if (el) el.textContent = "(sessão ativa)";
+    }
+    setLoginStatus();
+  </script>
+
+</body>
+</html>

@@ -1,0 +1,8 @@
+:root{--flat-blue:#0b4ea2;--flat-blue-dark:#083d7f}
+.topbar{display:flex;align-items:center;gap:16px;margin-bottom:16px;flex-wrap:wrap}
+.logo-flatlantic{height:32px;vertical-align:middle}
+.nav{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.pill{background:var(--flat-blue);color:#fff;border:none;border-radius:12px;padding:8px 14px;cursor:pointer;font-weight:600}
+.pill:hover{background:var(--flat-blue-dark)}
+.pill.active{background:#0a6be6;box-shadow:0 0 0 2px #fff inset,0 0 0 2px #0a6be6}
+.status-badge{background:var(--flat-blue);color:#fff;border-radius:8px;padding:4px 8px;font-size:12px;white-space:nowrap}

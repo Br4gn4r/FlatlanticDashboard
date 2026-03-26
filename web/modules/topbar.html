@@ -1,0 +1,17 @@
+<div class="topbar">
+
+
+  <img src="FlatlanticLogo.jpg" class="logo-flatlantic" alt="Flatlantic"/>
+  <div class="nav">
+    <button class="pill" data-link="dashboard" onclick="location.href='dashboard.html'">Indicadores Diários</button>
+    <button class="pill" data-link="mensal"    onclick="location.href='mensal.html'">Indicadores Mensais</button>
+    <button class="pill" data-link="paragens"  onclick="location.href='paragens.html'">Paragens</button>
+    <button class="pill" data-link="totais"    onclick="location.href='totais.html'">Totais por Lote</button>
+    <span id="status" class="status-badge">Atualizado …</span>
+  </div>
+
+<div style="margin-left:auto; display:flex; align-items:center; gap:12px;">
+    <span id="loginStatus" style="color:#0b4ea2; font-weight:bold;">(sessão ativa)</span>
+    <button onclick="logout()" class="pill" style="background:#d9534f;">Logout</button>
+</div>
+</div>

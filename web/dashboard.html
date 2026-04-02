@@ -7,12 +7,15 @@
   <title>Indicadores Diários – Flatlantic</title>
 
   <style>
-    .hidden { display:none !important; }
+.hidden {
+  display: none !important;
+}
 
     :root{
       --flat-blue:#0b4ea2;
       --flat-blue-dark:#083d7f;
     }
+
     body {
       font-family: Arial, sans-serif;
       margin: 24px;
@@ -29,6 +32,7 @@
     }
     .logo-flatlantic{
       height: 32px;
+      vertical-align: middle;
     }
     .nav{
       display:flex;
@@ -48,7 +52,7 @@
     .pill:hover{ background:var(--flat-blue-dark); }
     .pill.active {
       background:#0a6be6;
-      box-shadow:0 0 0 2px white inset,0 0 0 2px #0a6be6;
+      box-shadow:0 0 0 2px #ffffff inset, 0 0 0 2px #0a6be6;
     }
     .status-badge{
       background:var(--flat-blue);
@@ -83,7 +87,6 @@
       border-radius:6px;
       background:#fff;
     }
-
     button.flat-btn {
       padding:8px 16px;
       background:var(--flat-blue);
@@ -166,7 +169,6 @@
         <span id="status" class="status-badge">Atualizado …</span>
     </div>
 
-    <!-- AUTH -->
     <div class="auth-box" style="margin-left:auto; display:flex; gap:12px; align-items:center;">
         <span id="loginStatus" style="color:#0b4ea2; font-weight:bold;">(sessão ativa)</span>
         <button onclick="logout()" class="pill" style="background:#d9534f;">Logout</button>
@@ -174,7 +176,7 @@
 
   </div>
 
-  <!-- BARRA SUPERIOR -->
+  <!-- BAR + AJUSTES -->
   <div class="bar">
     <label>Data início:</label>
     <input type="date" id="dataInicio">
@@ -182,17 +184,89 @@
     <label>Data fim:</label>
     <input type="date" id="dataFim">
 
-    <!-- UPLOAD -->
-    <label>Ficheiro de dados:</label>
+    <button id="btn" class="flat-btn">Recarregar</button>
 
-    <input type="file" id="dadosFile" style="display:none;" onchange="ficheiroSelecionado()">
+    <!-- AJUSTES -->
+    <div class="ajustes-box">
+      <strong class="aj-title">+ Ajuste manual</strong>
 
-    <button type="button" id="btnSelectFile" class="flat-btn" style="background:#666;">Selecionar ficheiro</button>
+      <div class="aj-row">
+        <label>Dia:</label>
+        <input type="date" id="ajDia" />
+      </div>
 
-    <span id="ficheiroEstado" style="margin-left:10px; color:#0b4ea2; font-weight:bold;"></span>
+      <div class="aj-row">
+        <label>Tipo:</label>
+        <select id="ajTipo">
+          <option value="pregado">Pregado</option>
+          <option value="linguado">Linguado</option>
+          <option value="filete">Filetes</option>
+          <option value="posta">Postas</option>
+          <option value="eviscerado">Eviscerado</option>
+        </select>
+      </div>
 
-    <!-- BOTÃO PRINCIPAL -->
-    <button id="btn" class="flat-btn">Carregar</button>
+      <div class="aj-row">
+        <label>Peixes:</label>
+        <input type="number" id="ajPeixes" min="0" step="1" />
+      </div>
+
+      <div class="aj-row">
+        <label>Kg:</label>
+        <input type="number" id="ajKg" min="0" step="0.001" />
+      </div>
+
+      <div class="aj-row aj-lote">
+        <label>Lote:</label>
+        <input type="text" id="ajLote" placeholder="Obrigatório p/ filete/posta/evi" />
+      </div>
+
+      <div class="aj-row aj-vc">
+        <label>Vísceras (kg):</label>
+        <input type="number" id="ajViscerasKg" min="0" step="0.001" />
+      </div>
+
+      <div class="aj-row aj-vc">
+        <label>Carcaças (kg):</label>
+        <input type="number" id="ajCarcacasKg" min="0" step="0.001" />
+      </div>
+
+      <div class="aj-row full">
+        <label>Obs:</label>
+        <input type="text" id="ajObs" placeholder="Observação (opcional)">
+      </div>
+
+      <div class="aj-row full">
+        <button id="ajBtn" class="flat-btn">Adicionar</button>
+        <span id="ajMsg" class="aj-msg"></span>
+      </div>
+    </div>
+
+    <!-- LISTA DE AJUSTES -->
+    <div id="ajLista" style="margin-top:10px; background:#fff; border:1px solid #d6d9de; border-radius:8px; padding:8px 10px;">
+      <div style="display:flex; align-items:center; justify-content:space-between; gap:12px;">
+        <strong style="color:#0b4ea2;">Ajustes deste dia</strong>
+        <small id="ajInfo" style="color:#555;"></small>
+      </div>
+      <div style="overflow-x:auto; margin-top:8px;">
+        <table style="width:100%; border-collapse:collapse;">
+          <thead>
+            <tr style="background:#eef4ff;">
+              <th>Tipo</th>
+              <th>Peixes</th>
+              <th>Kg</th>
+              <th>Vísceras</th>
+              <th>Carcaças</th>
+              <th>Lote</th>
+              <th>Obs</th>
+              <th>Remover</th>
+            </tr>
+          </thead>
+          <tbody id="ajTbody"></tbody>
+        </table>
+      </div>
+    </div>
+
   </div>
 
   <!-- Tabela principal -->
@@ -226,163 +300,396 @@
     <tbody></tbody>
   </table>
 
+  <!-- Indicadores -->
   <script src="indicadores.js"></script>
 
-  <!-- JS PRINCIPAL -->
+  <!-- JS principal -->
   <script>
-function go(h){ window.location.href = h; }
+  function go(h){ window.location.href = h; }
 
-function markActiveFromBody() {
-  const current = document.body.getAttribute('data-page');
-  if (!current) return;
-  const btn = document.querySelector(`.nav .pill[data-link="${current}"]`);
-  if (btn) btn.classList.add('active');
-}
-markActiveFromBody();
+  function markActiveFromBody() {
+    const current = document.body.getAttribute('data-page');
+    if (!current) return;
+    const btn = document.querySelector(\`.nav .pill[data-link="\${current}"]\`);
+    if (btn) btn.classList.add('active');
+  }
+  markActiveFromBody();
 
-const tbody   = document.querySelector('#tbl tbody');
-const statusEl= document.getElementById('status');
-const btn     = document.getElementById('btn');
-const inpIni  = document.getElementById('dataInicio');
-const inpFim  = document.getElementById('dataFim');
+  const tbody   = document.querySelector('#tbl tbody');
+  const statusEl= document.getElementById('status');
+  const btn     = document.getElementById('btn');
+  const inpIni  = document.getElementById('dataInicio');
+  const inpFim  = document.getElementById('dataFim');
 
-// BOTÃO SELECIONAR FICHEIRO
-document.getElementById("btnSelectFile").onclick = () => {
-  document.getElementById("dadosFile").click();
-};
+  const order = [
+    'date','span_min','total_stop_min','proc_min',
+    'total_fish','total_kg',
+    'pregado_fish','pregado_kg',
+    'linguado_fish','linguado_kg',
+    'evi_fish','evi_kg',
+    'filete_fish','filete_kg',
+    'posta_fish','posta_kg',
+    'total_lots','total_refs',
+    'start_time','end_time',
+    'fish_per_min','stops_count'
+  ];
 
-function ficheiroSelecionado() {
-    const f = document.getElementById("dadosFile").files[0];
-    const est = document.getElementById("ficheiroEstado");
-    est.textContent = f ? "Ficheiro selecionado" : "";
-}
+  function fmtTime(v){
+    const d=new Date(v); return isNaN(d) ? "" :
+      String(d.getHours()).padStart(2,'0') + ":" +
+      String(d.getMinutes()).padStart(2,'0');
+  }
 
-async function uploadDados() {
-  const f = document.getElementById("dadosFile").files[0];
-  if (!f) return true;
+  function render(rows){
+    tbody.innerHTML="";
+    rows.forEach(r=>{
+      const tr=document.createElement("tr");
+      order.forEach(k=>{
+        const td=document.createElement("td");
+        let v=r[k];
 
-  const form = new FormData();
-  form.append("file", f);
+        if(k==="start_time"||k==="end_time") v=fmtTime(v);
+        if(["span_min","total_stop_min","proc_min"].includes(k)) v=Math.round(v);
 
-  const r = await fetch("/api/upload", { method:"POST", body:form });
-  const j = await r.json();
-  return j.ok === true;
-}
+        if(k==="fish_per_min"){
+          td.classList.add("bold","num");
+          td.textContent=Math.round(v);
+          tr.appendChild(td);
+          return;
+        }
 
-const order = [
-  'date','span_min','total_stop_min','proc_min',
-  'total_fish','total_kg',
-  'pregado_fish','pregado_kg',
-  'linguado_fish','linguado_kg',
-  'evi_fish','evi_kg',
-  'filete_fish','filete_kg',
-  'posta_fish','posta_kg',
-  'total_lots','total_refs',
-  'start_time','end_time',
-  'fish_per_min','stops_count'
-];
-
-function fmtTime(v){
-  const d = new Date(v);
-  return isNaN(d) ? "" :
-    String(d.getHours()).padStart(2,'0') + ":" +
-    String(d.getMinutes()).padStart(2,'0');
-}
-
-function render(rows){
-  tbody.innerHTML="";
-  rows.forEach(r=>{
-    const tr=document.createElement("tr");
-    order.forEach(k=>{
-      const td=document.createElement("td");
-      let v=r[k];
-
-      if(k==="start_time"||k==="end_time") v=fmtTime(v);
-      if(["span_min","total_stop_min","proc_min"].includes(k)) v=Math.round(v);
-
-      if(k==="fish_per_min"){
-        td.classList.add("bold","num");
-        td.textContent = Math.round(v);
+        if(typeof v==="number") td.classList.add("num");
+        td.textContent = v ?? "";
         tr.appendChild(td);
+      });
+      tbody.appendChild(tr);
+    });
+  }
+
+  function toISO(d){
+    return new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,10);
+  }
+
+  function loadPeriodo(){
+    const a=localStorage.getItem("periodo_inicio");
+    const b=localStorage.getItem("periodo_fim");
+    if(a && b) return {inicio:a,fim:b};
+    const t=new Date();
+    const f=new Date(); f.setDate(t.getDate()-6);
+    return {inicio:toISO(f),fim:toISO(t)};
+  }
+
+  btn.onclick = async () => {
+    const inicio = inpIni.value;
+    const fim    = inpFim.value;
+    if(!inicio || !fim) return alert("Escolhe as duas datas.");
+    if(inicio > fim) return alert("Data início maior que fim.");
+
+    statusEl.textContent="A atualizar…";
+    statusEl.classList.add("loading");
+    btn.disabled=true;
+
+    localStorage.setItem("periodo_inicio",inicio);
+    localStorage.setItem("periodo_fim",fim);
+
+    try{
+      await fetch(`/update?inicio=${inicio}&fim=${fim}`);
+      statusEl.textContent="Atualizado " + new Date().toLocaleString();
+      statusEl.classList.remove("loading");
+      location.reload();
+    }catch(e){
+      statusEl.textContent="Erro ao contactar servidor.";
+      statusEl.classList.remove("loading");
+      btn.disabled=false;
+    }
+  };
+
+  (function init(){
+    const {inicio,fim}=loadPeriodo();
+    inpIni.value=inicio;
+    inpFim.value=fim;
+
+    const rows=(window.__indicadores?.data)||[];
+    render(rows);
+
+    statusEl.textContent="Atualizado " + new Date().toLocaleString();
+  })();
+  </script>
+
+<!-- *** AJUSTES — UI + LÓGICA *** -->
+<script>
+(function ajustesUI(){
+  const selTipo = document.getElementById("ajTipo");
+  const loteEls = document.querySelectorAll(".aj-lote");
+  const vcEls   = document.querySelectorAll(".aj-vc");
+
+  const diaInp  = document.getElementById("ajDia");
+  const pxInp   = document.getElementById("ajPeixes");
+  const kgInp   = document.getElementById("ajKg");
+  const loteInp = document.getElementById("ajLote");
+  const visInp  = document.getElementById("ajViscerasKg");
+  const carInp  = document.getElementById("ajCarcacasKg");
+  const obsInp  = document.getElementById("ajObs");
+  const ajMsg   = document.getElementById("ajMsg");
+  const ajBtn   = document.getElementById("ajBtn");
+  const statusEl= document.getElementById("status");
+
+  const toISO = d => new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,10);
+
+  const needLoteVC = t => (t==="filete" || t==="posta");
+  const needOnlyVC = t => (t==="eviscerado");
+
+  function toggleFields(){
+    const t = selTipo.value;
+
+    loteEls.forEach(e => e.classList.add('hidden'));
+    vcEls.forEach(e   => e.classList.add('hidden'));
+    pxInp.parentElement.classList.add('hidden');
+    kgInp.parentElement.classList.add('hidden');
+
+    if(t==="pregado" || t==="linguado"){
+      pxInp.parentElement.classList.remove('hidden');
+      kgInp.parentElement.classList.remove('hidden');
+      return;
+    }
+
+    if(needLoteVC(t)){
+      pxInp.parentElement.classList.remove('hidden');
+      kgInp.parentElement.classList.remove('hidden'));
+      loteEls.forEach(e => e.classList.remove('hidden'));
+      vcEls.forEach(e   => e.classList.remove('hidden'));
+      return;
+    }
+
+    if(needOnlyVC(t)){
+      vcEls.forEach(e => e.classList.remove('hidden'));
+    }
+  }
+
+  function resetAjustesFields(){
+    diaInp.value = toISO(new Date());
+    selTipo.value = "pregado";
+    pxInp.value = "";
+    kgInp.value = "";
+    loteInp.value = "";
+    visInp.value = "";
+    carInp.value = "";
+    obsInp.value = "";
+    toggleFields();
+  }
+
+  resetAjustesFields();
+  selTipo.onchange = toggleFields;
+
+  ajBtn.onclick = async () => {
+    ajMsg.textContent="";
+    ajBtn.disabled=true;
+    statusEl.textContent="A atualizar ajustes…";
+    statusEl.classList.add("loading");
+
+    const dia  = diaInp.value;
+    const tipo = selTipo.value;
+
+    const peixes = Number(pxInp.value||0);
+    const kg     = Number(kgInp.value||0);
+
+    const lote = needLoteVC(tipo) ? (loteInp.value||"") : "";
+    const vis  = (needLoteVC(tipo)||needOnlyVC(tipo)) ? Number(visInp.value||0) : 0;
+    const car  = (needLoteVC(tipo)||needOnlyVC(tipo)) ? Number(carInp.value||0) : 0;
+
+    const obs  = (obsInp.value||"").trim();
+
+    if(!dia){
+      ajMsg.textContent="Indica o dia."; end(false); return;
+    }
+
+    if(tipo==="eviscerado"){
+      if(vis<=0 && car<=0){
+        ajMsg.textContent="Indica vísceras e/ou carcaças > 0.";
+        end(false); return;
+      }
+    }
+
+    if(tipo==="pregado" || tipo==="linguado"){
+      if(peixes<=0 && kg<=0){
+        ajMsg.textContent="Indica peixes e/ou kg > 0.";
+        end(false); return;
+      }
+    }
+
+    if(needLoteVC(tipo)){
+      if(peixes===0 && kg===0 && vis===0 && car===0){
+        ajMsg.textContent="Indica pelo menos um valor.";
+        end(false); return;
+      }
+      if(!lote){
+        ajMsg.textContent="Lote obrigatório.";
+        end(false); return;
+      }
+    }
+
+    try{
+      const r = await fetch("/ajuste",{
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({dia,tipo,peixes,kg,lote,visceras_kg:vis,carcacas_kg:car,obs})
+      });
+      const j = await r.json();
+      if(!r.ok || !j.ok) throw new Error(j.msg || "Falha ao gravar ajuste");
+
+      const inicio=document.getElementById("dataInicio").value;
+      const fim   =document.getElementById("dataFim").value;
+
+      const u = new URL("/update", window.location.origin);
+      if(inicio && fim){ u.searchParams.set("inicio",inicio); u.searchParams.set("fim",fim); }
+
+      await fetch(u);
+
+      resetAjustesFields();
+      end(true);
+      location.reload();
+
+    }catch(e){
+      ajMsg.textContent="Erro: "+e.message;
+      end(false);
+    }
+
+    function end(ok){
+      statusEl.textContent= ok ? ("Atualizado "+new Date().toLocaleString()) : "Erro ao atualizar";
+      statusEl.classList.remove("loading");
+      ajBtn.disabled=false;
+    }
+  };
+})();
+</script>
+
+<!-- LISTA DE AJUSTES -->
+<script>
+(async function ajustesLista(){
+  const diaInp  = document.getElementById("ajDia");
+  const ajInfo  = document.getElementById("ajInfo");
+  const ajTbody = document.getElementById("ajTbody");
+  const statusEl= document.getElementById("status");
+
+  async function load(dia){
+    ajInfo.textContent="A carregar…";
+    ajTbody.innerHTML="";
+
+    try{
+      const r=await fetch(`/ajustes?dia=${encodeURIComponent(dia)}`);
+      const j=await r.json();
+      if(!r.ok || !j.ok) throw new Error(j.msg || "Falha ao listar ajustes");
+
+      const arr=j.ajustes||[];
+      ajInfo.textContent=`${arr.length} ajuste(s) no dia ${dia}`;
+
+      if(!arr.length){
+        ajTbody.innerHTML=`<tr><td colspan="8" style="padding:8px; color:#555;">Sem ajustes neste dia.</td></tr>`;
         return;
       }
 
-      if(typeof v==="number") td.classList.add("num");
-      td.textContent = v ?? "";
-      tr.appendChild(td);
-    });
-    tbody.appendChild(tr);
-  });
-}
+      for(const a of arr){
+        const tr=document.createElement("tr");
+        tr.innerHTML=`
+          <td>${a.tipo||""}</td>
+          <td style="text-align:right">${a.peixes??""}</td>
+          <td style="text-align:right">${a.kg??""}</td>
+          <td style="text-align:right">${a.visceras_kg??""}</td>
+          <td style="text-align:right">${a.carcacas_kg??""}</td>
+          <td>${a.lote||""}</td>
+          <td>${a.obs||""}</td>
+          <td style="text-align:center;">
+            <button data-id="${a.id}" class="delAjBtn"
+              style="padding:4px 8px;background:#d9534f;color:#fff;border:none;border-radius:4px;cursor:pointer;">
+              X
+            </button>
+          </td>`;
+        ajTbody.appendChild(tr);
+      }
 
-function toISO(d){
-  return new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,10);
-}
+      ajTbody.querySelectorAll(".delAjBtn").forEach(btn=>{
+        btn.onclick = async () => {
+          const id=btn.getAttribute("data-id");
+          if(!id) return;
+          if(!confirm("Remover ajuste?")) return;
 
-function loadPeriodo(){
-  const a=localStorage.getItem("periodo_inicio");
-  const b=localStorage.getItem("periodo_fim");
-  if(a && b) return {inicio:a,fim:b};
-  const t=new Date();
-  const f=new Date(); f.setDate(t.getDate()-6);
-  return {inicio:toISO(f),fim:toISO(t)};
-}
+          statusEl.textContent="A atualizar ajustes…";
+          statusEl.classList.add("loading");
 
-btn.onclick = async () => {
+          const r2=await fetch(`/ajuste/${encodeURIComponent(dia)}/${encodeURIComponent(id)}`,{method:"DELETE"});
+          const j2=await r2.json();
+          if(!r2.ok||!j2.ok){
+            alert("Falha ao remover ajuste");
+            statusEl.textContent="Erro ao atualizar";
+            statusEl.classList.remove("loading");
+            return;
+          }
 
-  const okUpload = await uploadDados();
-  if (!okUpload) {
-      alert("Falha ao enviar ficheiro!");
-      return;
+          const inicio=document.getElementById("dataInicio").value;
+          const fim   =document.getElementById("dataFim").value;
+
+          const u=new URL("/update",window.location.origin);
+          if(inicio && fim){ u.searchParams.set("inicio",inicio); u.searchParams.set("fim",fim); }
+          await fetch(u);
+
+          statusEl.textContent="Atualizado "+new Date().toLocaleString();
+          statusEl.classList.remove("loading");
+
+          await load(dia);
+          location.reload();
+        };
+      });
+
+    }catch(e){
+      ajInfo.textContent="Erro: "+e.message;
+      ajTbody.innerHTML=`<tr><td colspan="8" style="padding:8px;color:#b00;">${e.message}</td></tr>`;
+    }
   }
 
-  const inicio=inpIni.value;
-  const fim   =inpFim.value;
-  if(!inicio||!fim) return alert("Escolhe as duas datas.");
-  if(inicio>fim) return alert("Data início maior que fim.");
-
-  statusEl.textContent="A atualizar…";
-  statusEl.classList.add("loading");
-  btn.disabled=true;
-
-  localStorage.setItem("periodo_inicio",inicio);
-  localStorage.setItem("periodo_fim",fim);
-
-  try{
-    await fetch(`/update?inicio=${inicio}&fim=${fim}`);
-    statusEl.textContent="Atualizado " + new Date().toLocaleString();
-    statusEl.classList.remove("loading");
-    location.reload();
-  }catch(e){
-    statusEl.textContent="Erro ao contactar servidor.";
-    statusEl.classList.remove("loading");
-    btn.disabled=false;
-  }
-};
-
-(function init(){
-  const {inicio,fim}=loadPeriodo();
-  inpIni.value=inicio;
-  inpFim.value=fim;
-
-  const rows=(window.__indicadores?.data)||[];
-  render(rows);
-
-  statusEl.textContent="Atualizado " + new Date().toLocaleString();
+  if(diaInp?.value) load(diaInp.value);
+  diaInp?.addEventListener("change",()=>{ if(diaInp.value) load(diaInp.value); });
 })();
-  </script>
+</script>
 
-  <!-- Logout -->
-  <script>
-    function logout() {
-      window.location.href = "/logout";
-    }
-    function setLoginStatus() {
-      const el = document.getElementById("loginStatus");
-      if (el) el.textContent = "(sessão ativa)";
-    }
-    setLoginStatus();
-  </script>
+<!-- EXPORT -->
+<div id="exportBarDashboard" style="margin:16px 0; display:flex; gap:8px; flex-wrap:wrap;">
+  <button id="btnExportTbl" class="flat-btn">Exportar CSV (Tabela)</button>
+  <button id="btnExportAjustes" class="flat-btn">Exportar CSV (Ajustes do dia)</button>
+</div>
+
+<script>
+(function(){
+  const btnTbl=document.getElementById('btnExportTbl');
+  btnTbl && (btnTbl.onclick=function(){
+    const tbl=document.getElementById('tbl');
+    if(!tbl){ alert('Tabela não encontrada.'); return; }
+    Export.downloadCSVFromTable(tbl,'dashboard_tabela');
+  });
+
+  const btnAj=document.getElementById('btnExportAjustes');
+  btnAj && (btnAj.onclick=function(){
+    const tb=document.getElementById('ajTbody');
+    if(!tb){ alert('Lista de ajustes não encontrada.'); return; }
+    const table=tb.closest('table') || tb;
+    Export.downloadCSVFromTable(table,'dashboard_ajustes');
+  });
+})();
+</script>
+
+<script src="export.js?v=1"></script>
+
+<script>
+setInterval(() => { location.reload(); }, 300000);
+</script>
+
+<script>
+function logout() { window.location.href = "/logout"; }
+function setLoginStatus() {
+  const el = document.getElementById("loginStatus");
+  if (el) el.textContent = "(sessão ativa)";
+}
+setLoginStatus();
+</script>
 
 </body>
 </html>

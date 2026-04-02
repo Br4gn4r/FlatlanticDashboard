@@ -142,7 +142,6 @@
         <span id="status" class="status-badge">Atualizado …</span>
     </div>
 
-    <!-- ✅ BLOCO DE LOGIN/LOGOUT, sempre no fim e alinhado à direita -->
     <div class="auth-box" style="margin-left:auto; display:flex; gap:12px; align-items:center;">
         <span id="loginStatus" style="color:#0b4ea2; font-weight:bold;">(sessão ativa)</span>
         <button onclick="logout()" class="pill" style="background:#d9534f;">Logout</button>
@@ -150,80 +149,72 @@
 
 </div>
 
-  <div id="container"></div>
+<div id="container"></div>
 
-  <script src="indicadores.js"></script>
+<script src="indicadores.js"></script>
 
-  <script>
-  function go(h){ window.location.href=h; }
-  function markActiveFromBody(){
-    const c=document.body.getAttribute('data-page');
-    if(c) document.querySelector(`.nav .pill[data-link="${c}"]`)?.classList.add('active');
-  }
-  markActiveFromBody();
+<script>
+function go(h){ window.location.href=h; }
+function markActiveFromBody(){
+  const c=document.body.getAttribute('data-page');
+  if(c) document.querySelector(`.nav .pill[data-link="${c}"]`)?.classList.add('active');
+}
+markActiveFromBody();
 
-  const statusEl=document.getElementById('status');
+const statusEl=document.getElementById('status');
 
-  function hhmm(iso){
-    const d=new Date(iso);
-    if(isNaN(d)) return "";
-    return String(d.getHours()).padStart(2,"0")+":"+String(d.getMinutes()).padStart(2,"0");
-  }
-  function getPeriodoLS(){
-    const inicio=localStorage.getItem("periodo_inicio");
-    const fim   =localStorage.getItem("periodo_fim");
-    return (inicio && fim) ? {inicio,fim} : null;
-  }
-  function getPeriodoFromStops(STOPS){
-    const dias=Object.keys(STOPS).sort();
-    if(!dias.length) return null;
-    return {inicio:dias[0], fim:dias[dias.length-1]};
-  }
+function hhmm(iso){
+  const d=new Date(iso);
+  if(isNaN(d)) return "";
+  return String(d.getHours()).padStart(2,"0")+":"+String(d.getMinutes()).padStart(2,"0");
+}
 
-  function classFromType(t){
-    const raw=String(t||"").toLowerCase();
-    if(raw.includes("almo")) return "almoco";
-    if(raw.includes("avaria")) return "avaria";
-    if(raw.includes("manut")) return "manutencao";
-    return "paragem";
-  }
+function getPeriodoLS(){
+  const inicio=localStorage.getItem("periodo_inicio");
+  const fim   =localStorage.getItem("periodo_fim");
+  return (inicio && fim) ? {inicio,fim} : null;
+}
 
-  async function applyOverridesOnClient(STOPS){
-    try{
-      const r=await fetch("/paragens/overrides");
-      const j=await r.json();
-      if(!r.ok||!j.ok) return;
-      const ovr=j.overrides||{};
-      for(const dia of Object.keys(ovr)){
-        const mapDia=ovr[dia];
-        const arr=STOPS[dia];
-        if(!arr||!mapDia) continue;
-        arr.forEach(st=>{
-          if(mapDia[st.id]) st.type=mapDia[st.id];
-        });
-      }
-    }catch(e){ console.warn("Falha override:",e.message); }
-  }
-(async function initParagens(){
+function getPeriodoFromStops(STOPS){
+  const dias=Object.keys(STOPS).sort();
+  if(!dias.length) return null;
+  return {inicio:dias[0], fim:dias[dias.length-1]};
+}
 
-    const IND = window.__indicadores || {};
-    const STOPS = IND.stops || {};
-    const dias = Object.keys(STOPS).sort();
-    const container=document.getElementById("container");
+function classFromType(t){
+  const raw=String(t||"").toLowerCase();
+  if(raw.includes("almo")) return "almoco";
+  if(raw.includes("avaria")) return "avaria";
+  if(raw.includes("manut")) return "manutencao";
+  return "paragem";
+}
 
-// ✅ NOVO RESUMO GLOBAL DO MÊS
-(function buildMonthlySummary(){
+async function applyOverridesOnClient(STOPS){
+  try{
+    const r=await fetch("/paragens/overrides");
+    const j=await r.json();
+    if(!r.ok||!j.ok) return;
+    const ovr=j.overrides||{};
+    for(const dia of Object.keys(ovr)){
+      const mapDia=ovr[dia];
+      const arr=STOPS[dia];
+      if(!arr||!mapDia) continue;
+      arr.forEach(st=>{
+        if(mapDia[st.id]) st.type=mapDia[st.id];
+      });
+    }
+  }catch(e){ console.warn("Falha override:",e.message); }
+}
 
+// ---------------------------------------------------------
+//    CORREÇÃO 1 — Resumo mensal movido para função
+// ---------------------------------------------------------
+function buildMonthlySummary(STOPS){
     const allDays = Object.keys(STOPS).sort();
     if (!allDays.length) return;
 
-    // -- total paragens do mês
     let totalParagensMes = 0;
-
-    // -- total minutos parados no mês
     let totalMinutosMes = 0;
-
-    // -- por tipo
     const porTipo = {};
 
     for (const dia of allDays) {
@@ -241,61 +232,61 @@
     const mediaParagensDia = (totalParagensMes / numDias).toFixed(1);
     const mediaMinutosDia = (totalMinutosMes / numDias).toFixed(1);
 
-    // ✅ Criar elemento visual
     const div = document.createElement("div");
-    div.style.background = "#ffffff";
-    div.style.padding = "16px";
-    div.style.border = "1px solid #d6d9de";
-    div.style.borderRadius = "8px";
-    div.style.marginBottom = "20px";
-    div.style.boxShadow = "0 2px 4px rgba(0,0,0,0.06)";
+    div.style = "background:#fff;padding:16px;border:1px solid #d6d9de;border-radius:8px;margin-bottom:20px;box-shadow:0 2px 4px rgba(0,0,0,0.06);";
 
-    // ✅ ORDENAR tipos pelo total de minutos (maior → menor)
-const tiposOrdenados = Object.entries(porTipo)
-    .sort((a, b) => b[1] - a[1]);
-
-let tiposHTML = "";
-for (const [tipo, minutos] of tiposOrdenados) {
-    tiposHTML += `
+    const tiposOrdenados = Object.entries(porTipo).sort((a,b)=>b[1]-a[1]);
+    let tiposHTML="";
+    for(const [tipo,minutos] of tiposOrdenados){
+      tiposHTML += `
         <tr>
-            <td>${tipo.charAt(0).toUpperCase() + tipo.slice(1)}</td>
-            <td class="num">${minutos.toFixed(1)} min</td>
+          <td>${tipo.charAt(0).toUpperCase()+tipo.slice(1)}</td>
+          <td class="num">${minutos.toFixed(1)} min</td>
         </tr>
-    `;
-
+      `;
     }
 
     div.innerHTML = `
-        <h2>Resumo Mensal</h2>
+      <h2>Resumo Mensal</h2>
+      <table>
+        <tr><th>Total de paragens no mês</th><td class="num">${totalParagensMes}</td></tr>
+        <tr><th>Total de tempo parado</th><td class="num">${totalMinutosMes.toFixed(1)} min</td></tr>
+        <tr><th>Média de paragens por dia</th><td class="num">${mediaParagensDia}</td></tr>
+        <tr><th>Tempo médio parado por dia</th><td class="num">${mediaMinutosDia} min</td></tr>
+      </table>
 
-        <table>
-            <tr><th>Total de paragens no mês</th><td class="num">${totalParagensMes}</td></tr>
-            <tr><th>Total de tempo parado</th><td class="num">${totalMinutosMes.toFixed(1)} min</td></tr>
-            <tr><th>Média de paragens por dia</th><td class="num">${mediaParagensDia}</td></tr>
-            <tr><th>Tempo médio parado por dia</th><td class="num">${mediaMinutosDia} min</td></tr>
-        </table>
-
-        <h3 style="color:#0b4ea2; margin-top:20px;">Minutos parados por tipo</h3>
-        <table>
-            <thead>
-                <tr><th>Tipo</th><th>Minutos</th></tr>
-            </thead>
-            <tbody>
-                ${tiposHTML}
-            </tbody>
-        </table>
+      <h3 style="color:#0b4ea2; margin-top:20px;">Minutos parados por tipo</h3>
+      <table>
+        <thead>
+          <tr><th>Tipo</th><th>Minutos</th></tr>
+        </thead>
+        <tbody>
+          ${tiposHTML}
+        </tbody>
+      </table>
     `;
 
     container.appendChild(div);
+}
 
-})();
+// ---------------------------------------------------------
+(async function initParagens(){
 
-    // Ativar animação (igual ao dashboard/mensal)
+    const IND = window.__indicadores || {};
+    const STOPS = IND.stops || {};
+    const dias = Object.keys(STOPS).sort();
+    const container=document.getElementById("container");
+
     statusEl.textContent="A atualizar…";
     statusEl.classList.add("loading");
 
     // aplicar overrides
     await applyOverridesOnClient(STOPS);
+
+    // ---------------------------------------------------------
+    // CORREÇÃO 1 — Resumo mensal agora é construído DEPOIS dos overrides
+    // ---------------------------------------------------------
+    buildMonthlySummary(STOPS);
 
     if(dias.length===0){
       container.innerHTML="<p style='color:#555;'>Não existem paragens no período selecionado.</p>";
@@ -411,7 +402,11 @@ for (const [tipo, minutos] of tiposOrdenados) {
 
             statusEl.textContent="Atualizado "+new Date().toLocaleString();
             statusEl.classList.remove("loading");
-            setTimeout(()=>window.location.href=`paragens.html?ts=${Date.now()}`,200);
+
+            // ---------------------------------------------------------
+            // CORREÇÃO 2 — Reload após 2000 ms
+            // ---------------------------------------------------------
+            setTimeout(()=>window.location.href=`paragens.html?ts=${Date.now()}`,2000);
 
           }catch(e){
             info.textContent="Erro: "+e.message;
@@ -449,7 +444,11 @@ for (const [tipo, minutos] of tiposOrdenados) {
 
             statusEl.textContent="Atualizado "+new Date().toLocaleString();
             statusEl.classList.remove("loading");
-            setTimeout(()=>window.location.href=`paragens.html?ts=${Date.now()}`,200);
+
+            // ---------------------------------------------------------
+            // CORREÇÃO 2 — Reload após 2000 ms
+            // ---------------------------------------------------------
+            setTimeout(()=>window.location.href=`paragens.html?ts=${Date.now()}`,2000);
 
           }catch(e){
             info.textContent="Erro: "+e.message;
@@ -462,7 +461,6 @@ for (const [tipo, minutos] of tiposOrdenados) {
         tbody.appendChild(tr);
       });
 
-      // total
       const trTot=document.createElement("tr");
       trTot.classList.add("total-row");
       trTot.innerHTML=`
@@ -478,10 +476,9 @@ for (const [tipo, minutos] of tiposOrdenados) {
     statusEl.textContent="Atualizado "+new Date().toLocaleString();
     statusEl.classList.remove("loading");
 
-  })();
+})();
 </script>
 
-<!-- Exportações -->
 <div id="exportBarParagens" style="margin:16px 0; display:flex; gap:8px; flex-wrap:wrap;">
   <button id="btnExportAllStops" class="flat-btn">Exportar CSV (Todas as tabelas)</button>
 </div>
@@ -511,7 +508,6 @@ for (const [tipo, minutos] of tiposOrdenados) {
       statusEl.classList.remove("loading");
     }
   };
-
 })();
 </script>
 
@@ -521,13 +517,10 @@ for (const [tipo, minutos] of tiposOrdenados) {
 function logout() {
     window.location.href = "/logout";
 }
-
-// Atualiza estado visual
 function setLoginStatus() {
     const el = document.getElementById("loginStatus");
     if (el) el.textContent = "(sessão ativa)";
 }
-
 setLoginStatus();
 </script>
 

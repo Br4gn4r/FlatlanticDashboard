@@ -122,9 +122,33 @@ const storage = multer.diskStorage({
 });
 const upload = multer({ storage });
 
-app.post("/api/upload", upload.single("file"), (req, res) => {
-  if (!req.file) return res.json({ ok: false });
-  return res.json({ ok: true });
+// ✅ Upload simples para a raiz do projeto (BASE)
+// ✅ Remove automaticamente todos os .xlsx antes de gravar o novo ficheiro
+
+app.post("/api/upload", (req, res, next) => {
+  // 1) APAGAR TODOS OS EXCEL ANTIGOS
+  try {
+    const files = fs.readdirSync(BASE);
+    files
+      .filter(f => f.toLowerCase().endsWith(".xlsx"))
+      .forEach(f => {
+        try {
+          fs.unlinkSync(path.join(BASE, f));
+        } catch (e) {
+          console.warn("Falha ao remover", f, e.message);
+        }
+      });
+  } catch (e) {
+    console.warn("Erro ao listar diretoria para limpeza:", e.message);
+  }
+
+  // 2) PROSSEGUIR PARA O UPLOAD
+  upload.single("file")(req, res, function (err) {
+    if (err) return res.status(500).json({ ok: false, msg: err.message });
+    if (!req.file) return res.json({ ok: false });
+
+    return res.json({ ok: true });
+  });
 });
 
 // 1) UPDATE → Executa o processar.mjs com (opcional) período inicio/fim

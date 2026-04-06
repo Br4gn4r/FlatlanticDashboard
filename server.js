@@ -298,6 +298,65 @@ app.get("/paragens/overrides", (req, res) => {
   res.json({ ok: true, overrides: data });
 });
 
+// ================== CONVERTER OVERRIDES ANTIGOS (ISO → minutos) ==================
+app.get("/converter-overrides", (req, res) => {
+  try {
+    if (!fs.existsSync(PARAGENS_OVR_PATH)) {
+      return res.json({ ok: false, msg: "paragens_user.json não encontrado." });
+    }
+
+    const data = JSON.parse(fs.readFileSync(PARAGENS_OVR_PATH, "utf8"));
+    const converted = {};
+
+    function isoToMinutes(iso) {
+      // ISO no formato original: "2024-03-30T09:12:00.000Z"
+      const d = new Date(iso);
+      if (isNaN(d)) return null;
+      return d.getUTCHours() * 60 + d.getUTCMinutes();
+    }
+
+    for (const dia of Object.keys(data)) {
+      const mapOld = data[dia];
+      const mapNew = {};
+
+      for (const oldID of Object.keys(mapOld)) {
+        const tipo = mapOld[oldID];
+
+        // Formato antigo: "ISO_ISO"
+        const parts = oldID.split("_");
+        if (parts.length !== 2) continue;
+
+        const startISO = parts[0];
+        const endISO   = parts[1];
+
+        const startMin = isoToMinutes(startISO);
+        const endMin   = isoToMinutes(endISO);
+
+        if (startMin == null || endMin == null) {
+          console.log("ID inválido, ignorado:", oldID);
+          continue;
+        }
+
+        const newID = `${startMin}_${endMin}`;
+        mapNew[newID] = tipo;
+      }
+
+      converted[dia] = mapNew;
+    }
+
+    fs.writeFileSync(PARAGENS_OVR_PATH, JSON.stringify(converted, null, 2), "utf8");
+
+    return res.json({
+      ok: true,
+      msg: "Overrides antigos convertidos com sucesso!",
+      diasConvertidos: Object.keys(converted).length
+    });
+
+  } catch (e) {
+    console.error("Erro converter-overrides:", e);
+    return res.status(500).json({ ok: false, erro: e.message });
+  }
+});
 // ================== START ==================
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {

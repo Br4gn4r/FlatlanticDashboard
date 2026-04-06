@@ -745,75 +745,63 @@ function getAjustesDoMes(escolhido) {
   
 <script>
 (function(){
-  const btnTbl=document.getElementById('btnExportTbl');
-  btnTbl && (btnTbl.onclick=function(){
-    const tbl=document.getElementById('tbl');
-    if(!tbl){ alert('Tabela não encontrada.'); return; }
-     const ws = XLSX.utils.table_to_sheet(tbl);
+
+  // ✅ Exportar tabela principal para Excel
+  const btnTbl = document.getElementById('btnExportTbl');
+  btnTbl && (btnTbl.onclick = function () {
+      const tbl = document.getElementById('tbl');
+      if (!tbl) { alert('Tabela não encontrada.'); return; }
+
+      const ws = XLSX.utils.table_to_sheet(tbl);
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, "Tabela");
       XLSX.writeFile(wb, "dashboard_tabela.xlsx");
-
   });
 
+
+  // ✅ Exportar ajustes por mês para Excel
   const btnAj = document.getElementById('btnExportAjustes');
-btnAj.onclick = () => {
+  btnAj.onclick = () => {
 
-    const mes = document.getElementById("selectMesAjustes").value;
-    if (!mes) {
-        alert("Escolha um mês primeiro!");
-        return;
-    }
+      const mes = document.getElementById("selectMesAjustes").value;
+      if (!mes) {
+          alert("Escolha um mês primeiro!");
+          return;
+      }
 
-    const ajustes = getAjustesDoMes(mes);
-    if (!ajustes.length) {
-        alert("Não existem ajustes neste mês.");
-        return;
-    }
+      const ajustes = getAjustesDoMes(mes);
+      if (!ajustes.length) {
+          alert("Não existem ajustes neste mês.");
+          return;
+      }
 
-    const header = [
-        "Dia", "Tipo", "Peixes", "Kg",
-        "Lote", "Vísceras (kg)", "Carcaças (kg)", "Obs"
-    ];
+      const header = [
+          "Dia", "Tipo", "Peixes", "Kg",
+          "Lote", "Vísceras (kg)", "Carcaças (kg)", "Obs"
+      ];
 
-    const linhas = [header];
+      const linhas = [header];
 
-    ajustes.forEach(a => {
-        linhas.push([
-            a.dia,
-            a.tipo,
-            a.peixes,
-            a.kg,
-            a.lote,
-            a.visceras,
-            a.carcacas,
-            a.obs
-        ]);
-    });
+      ajustes.forEach(a => {
+          linhas.push([
+              a.dia,
+              a.tipo,
+              a.peixes,
+              a.kg,
+              a.lote,
+              a.visceras,
+              a.carcacas,
+              a.obs
+          ]);
+      });
 
-    const wb = XLSX.utils.book_new();
-    const ws = XLSX.utils.aoa_to_sheet(linhas);
-    XLSX.utils.book_append_sheet(wb, ws, mes.replace("-", "_"));
+      const wb = XLSX.utils.book_new();
+      const ws = XLSX.utils.aoa_to_sheet(linhas);
+      XLSX.utils.book_append_sheet(wb, ws, mes.replace("-", "_"));
 
-    XLSX.writeFile(wb, `ajustes_${mes}.xlsx`);
-};
+      XLSX.writeFile(wb, `ajustes_${mes}.xlsx`);
+  };
 
-// Converter ajustes → excel
-const cabec = ["Dia","Tipo","Peixes","Kg","Lote","Vísceras (kg)","Carcaças (kg)","Obs"];
-const linhas = [cabec];
-
-ajustes.forEach(a => {
-  linhas.push([
-    a.dia, a.tipo, a.peixes, a.kg, a.lote,
-    a.visceras, a.carcacas, a.obs
-  ]);
-});
-
-const ws = XLSX.utils.aoa_to_sheet(linhas);
-const wb = XLSX.utils.book_new();
-XLSX.utils.book_append_sheet(wb, ws, "Ajustes_do_mes");
-XLSX.writeFile(wb, "dashboard_ajustes_mes.xlsx");
-  });
 })();
 </script>
 

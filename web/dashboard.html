@@ -315,67 +315,75 @@
   <script src="indicadores.js"></script>
 
   <!-- JS principal -->
-  <script>
-  function go(h){ window.location.href=h; }
+ <script>
+function go(h){ window.location.href=h; }
 
-  function markActiveFromBody() {
-    const current = document.body.getAttribute('data-page');
-    if (!current) return;
-    const btn = document.querySelector(`.nav .pill[data-link="${current}"]`);
-    if (btn) btn.classList.add('active');
-  }
-  markActiveFromBody();
+function markActiveFromBody() {
+  const current = document.body.getAttribute('data-page');
+  if (!current) return;
+  const btn = document.querySelector(`.nav .pill[data-link="${current}"]`);
+  if (btn) btn.classList.add('active');
+}
+markActiveFromBody();
 
-  const tbody   = document.querySelector('#tbl tbody');
-  const statusEl= document.getElementById('status');
-  const btn     = document.getElementById('btn');
-  const inpIni  = document.getElementById('dataInicio');
-  const inpFim  = document.getElementById('dataFim');
+const tbody   = document.querySelector('#tbl tbody');
+const statusEl= document.getElementById('status');
+const btn     = document.getElementById('btn');
+const inpIni  = document.getElementById('dataInicio');
+const inpFim  = document.getElementById('dataFim');
 
-  const order = [
-    'date','span_min','total_stop_min','proc_min',
-    'total_fish','total_kg',
-    'pregado_fish','pregado_kg',
-    'linguado_fish','linguado_kg',
-    'evi_fish','evi_kg',
-    'filete_fish','filete_kg',
-    'posta_fish','posta_kg',
-    'total_lots','total_refs',
-    'start_time','end_time',
-    'fish_per_min','stops_count'
-  ];
+const order = [
+  'date','span_min','total_stop_min','proc_min',
+  'total_fish','total_kg',
+  'pregado_fish','pregado_kg',
+  'linguado_fish','linguado_kg',
+  'evi_fish','evi_kg',
+  'filete_fish','filete_kg',
+  'posta_fish','posta_kg',
+  'total_lots','total_refs',
+  'start_time','end_time',
+  'fish_per_min','stops_count'
+];
 
-  function fmtTime(v){
-    const d=new Date(v); return isNaN(d) ? "" :
-      String(d.getHours()).padStart(2,'0') + ":" +
-      String(d.getMinutes()).padStart(2,'0');
-  }
+// ✅ CORRIGIDO: aceita HH:MM direto
+function fmtTime(v){
+  if (!v) return "";
+  if (typeof v === "string" && /^\d{2}:\d{2}$/.test(v)) return v;
+  return "";
+}
 
-  function render(rows){
-    tbody.innerHTML="";
-    rows.forEach(r=>{
-      const tr=document.createElement("tr");
-      order.forEach(k=>{
-        const td=document.createElement("td");
-        let v=r[k];
+function render(rows){
+  tbody.innerHTML="";
+  rows.forEach(r=>{
+    const tr=document.createElement("tr");
+    order.forEach(k=>{
+      const td=document.createElement("td");
+      let v=r[k];
 
-        if(k==="start_time"||k==="end_time") v=fmtTime(v);
-        if(["span_min","total_stop_min","proc_min"].includes(k)) v=Math.round(v);
-
-        if(k==="fish_per_min"){
-          td.classList.add("bold","num");
-          td.textContent=Math.round(v);
-          tr.appendChild(td);
-          return;
-        }
-
-        if(typeof v==="number") td.classList.add("num");
-        td.textContent = v ?? "";
+      // ✅ HORAS — usar direto, sem Date
+      if(k==="start_time"||k==="end_time"){
+        td.textContent = fmtTime(v);
         tr.appendChild(td);
-      });
-      tbody.appendChild(tr);
+        return;
+      }
+
+      if(["span_min","total_stop_min","proc_min"].includes(k)) 
+        v=Math.round(v);
+
+      if(k==="fish_per_min"){
+        td.classList.add("bold","num");
+        td.textContent=Math.round(v);
+        tr.appendChild(td);
+        return;
+      }
+
+      if(typeof v==="number") td.classList.add("num");
+      td.textContent = v ?? "";
+      tr.appendChild(td);
     });
-  }
+    tbody.appendChild(tr);
+  });
+}
 
   function toISO(d){
     return new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,10);

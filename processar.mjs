@@ -54,25 +54,16 @@ if (dtInicio && dtFim){
   console.log("[PERÍODO] Sem filtro");
 }
 
-// ✅ CORREÇÃO DST — Função robusta sem deslocamento de hora
+// ✅✅✅ CORREÇÃO DST — sem offset, sem +1h
 function excelSerialToDate(sn) {
   if (typeof sn !== "number") return null;
 
-  // Excel epoch ALWAYS UTC
+  // Excel epoch em UTC
   const epoch = Date.UTC(1899, 11, 30);
   const ms = epoch + sn * 86400 * 1000;
 
-  const d = new Date(ms);
-
-  // ✅ Construir data LOCAL sem ajuste DST
-  return new Date(
-    d.getFullYear(),
-    d.getMonth(),
-    d.getDate(),
-    d.getHours(),
-    d.getMinutes(),
-    d.getSeconds()
-  );
+  // ✅ devolve em UTC puro, sem converter para local
+  return new Date(ms);
 }
 
 // == UTILS ==
@@ -95,8 +86,9 @@ const LUNCH_MIN = 40, LUNCH_START=11, LUNCH_END=14;
 
 function overlapsLunch(start,end){ 
   const y=start.getFullYear(),m=start.getMonth(),d=start.getDate();
-  const L1=new Date(y,m,d,LUNCH_START,0,0), L2=new Date(y,m,d,LUNCH_END,0,0); 
-  return end > L1 && start < L2; 
+  const L1=new Date(Date.UTC(y,m,d,LUNCH_START,0,0));
+  const L2=new Date(Date.UTC(y,m,d,LUNCH_END,0,0));
+  return end > L1 && start < L2;
 }
 
 function classifyStop(start,end,dur){ 
@@ -234,7 +226,6 @@ function processAll(){
   const totaisPorDia={};
   const stopsByDay={};
 
-  // === POR DIA ===
   for (const [date, arr] of byDate){
     arr.sort((a,b)=>a.dt-b.dt);
 

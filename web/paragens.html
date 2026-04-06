@@ -459,27 +459,52 @@ function buildMonthlySummary(STOPS){
 </div>
 
 <script>
-(function(){
-  const btnAll=document.getElementById('btnExportAllStops');
-  btnAll.onclick = ()=>{
-    const container=document.getElementById('container');
-    const tables=container.querySelectorAll('table');
-    if(!tables.length){ alert('Sem tabelas.'); return; }
+(function () {
+  const btnAll = document.getElementById('btnExportAllStops');
 
-    statusEl.textContent="A preparar exportação…";
+  btnAll.onclick = () => {
+    const container = document.getElementById('container');
+    const tables = container.querySelectorAll('table');
+    if (!tables.length) { alert('Sem tabelas.'); return; }
+
+    statusEl.textContent = "A preparar exportação…";
     statusEl.classList.add("loading");
 
-    try{
-      let i=1;
-      tables.forEach(t=>{
-        let day='paragens_'+(i++);
-        let prev=t.previousElementSibling;
-        while(prev && prev.tagName!=='H2'){ prev=prev.previousElementSibling; }
-        if(prev) day=prev.textContent.trim();
-        Export.downloadCSVFromTable(t,'paragens_'+day);
+    try {
+      let linhas = [];
+
+      tables.forEach(t => {
+        // Encontrar o H2 correspondente ao dia
+        let prev = t.previousElementSibling;
+        while (prev && prev.tagName !== 'H2') prev = prev.previousElementSibling;
+        const dia = prev ? prev.textContent.trim() : "Dia desconhecido";
+
+        // Cabeçalho do dia
+        linhas.push("### " + dia);
+
+        // CSV da tabela (função interna da export.js)
+        const csv = Export.tableToCSV(t).split("\n");
+        linhas.push(...csv);
+
+        // Linha vazia separadora
+        linhas.push("");
       });
+
+      // Criar o ficheiro CSV único
+      const blob = new Blob([linhas.join("\n")], {
+        type: "text/csv;charset=utf-8;"
+      });
+      const url = URL.createObjectURL(blob);
+
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "paragens_todas.csv";
+      a.click();
+
+      URL.revokeObjectURL(url);
+
     } finally {
-      statusEl.textContent="Atualizado "+new Date().toLocaleString();
+      statusEl.textContent = "Atualizado " + new Date().toLocaleString();
       statusEl.classList.remove("loading");
     }
   };

@@ -705,47 +705,10 @@ function render(rows){
 <!-- EXPORT -->
 <div id="exportBarDashboard" style="margin:16px 0; display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
 
-  <label style="font-weight:bold; color:#0b4ea2;">Mês:</label>
-
- <input type="month" id="selectMesAjustes" class="flat-btn"
-       style="padding:6px; background:white; border:1px solid #0b4ea2; cursor:pointer;"
-       onkeydown="return false;">
-
-  <button id="btnExportAjustes" class="flat-btn">Exportar Ajustes do Mês</button>
-
   <button id="btnExportTbl" class="flat-btn" style="margin-left:auto;">Exportar Excel (Tabela)</button>
 
 </div>
-  
-<script>
-function getAjustesDoMes(escolhido) {
-    const IND = window.__indicadores || {};
-    const ajustesAll = IND.ajustes || {};
-
-    if (!escolhido) return [];
-
-    const lista = [];
-
-    for (const dia of Object.keys(ajustesAll)) {
-        if (!dia.startsWith(escolhido)) continue;
-
-        for (const aj of ajustesAll[dia]) {
-            lista.push({
-                dia,
-                tipo: aj.tipo,
-                peixes: aj.peixes,
-                kg: aj.kg,
-                lote: aj.lote,
-                visceras: aj.visceras_kg,
-                carcacas: aj.carcacas_kg,
-                obs: aj.obs
-            });
-        }
-    }
-    return lista;
-}
-</script>
-  
+    
 <script>
 (function(){
 
@@ -758,39 +721,6 @@ function getAjustesDoMes(escolhido) {
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, "Tabela");
       XLSX.writeFile(wb, "dashboard_tabela.xlsx");
-  };
-
-
-  // ✅ Exportar AJUSTES DO MÊS
-  document.getElementById("btnExportAjustes").onclick = () => {
-
-      const mes = document.getElementById("selectMesAjustes").value;
-
-      if (!mes) {
-          alert("Escolha um mês.");
-          return;
-      }
-
-      const ajustes = getAjustesDoMes(mes);
-      if (!ajustes.length) {
-          alert("Não existem ajustes neste mês.");
-          return;
-      }
-
-      const header = ["Dia","Tipo","Peixes","Kg","Lote","Vísceras (kg)","Carcaças (kg)","Obs"];
-      const linhas = [header];
-
-      ajustes.forEach(a => {
-          linhas.push([
-              a.dia, a.tipo, a.peixes, a.kg,
-              a.lote, a.visceras, a.carcacas, a.obs
-          ]);
-      });
-
-      const wb = XLSX.utils.book_new();
-      const ws = XLSX.utils.aoa_to_sheet(linhas);
-      XLSX.utils.book_append_sheet(wb, ws, mes.replace("-", "_"));
-      XLSX.writeFile(wb, `ajustes_${mes}.xlsx`);
   };
 
 })();

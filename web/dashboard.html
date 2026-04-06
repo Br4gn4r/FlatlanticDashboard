@@ -703,17 +703,19 @@ function render(rows){
 </script>
 
 <!-- EXPORT -->
-<div id="exportBarDashboard" style="margin:16px 0; display:flex; gap:8px; flex-wrap:wrap;">
-  
-  <!-- EXPORT TABELA -->
-  <button id="btnExportTbl" class="flat-btn">Exportar Excel (Tabela)</button>
+<div id="exportBarDashboard" style="margin:16px 0; display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
 
-  <!-- EXPORT AJUSTES POR MÊS -->
-  <input type="month" id="selectMesAjustes" class="flat-btn"
-         style="padding:6px; background:white; border:1px solid #0b4ea2; cursor:pointer;">
+  <label style="font-weight:bold; color:#0b4ea2;">Mês:</label>
+
+  <input type="month" id="selectMesAjustes"
+         style="padding:6px 8px; border:1px solid #0b4ea2; border-radius:6px; background:white; cursor:pointer;">
+
   <button id="btnExportAjustes" class="flat-btn">Exportar Ajustes do Mês</button>
-</div>
 
+  <button id="btnExportTbl" class="flat-btn" style="margin-left:auto;">Exportar Excel (Tabela)</button>
+
+</div>
+  
 <script>
 function getAjustesDoMes(escolhido) {
     const IND = window.__indicadores || {};
@@ -746,26 +748,25 @@ function getAjustesDoMes(escolhido) {
 <script>
 (function(){
 
-  // ✅ Exportar tabela principal para Excel
-  const btnTbl = document.getElementById('btnExportTbl');
-  btnTbl && (btnTbl.onclick = function () {
-      const tbl = document.getElementById('tbl');
-      if (!tbl) { alert('Tabela não encontrada.'); return; }
+  // ✅ Exportar TABELA PRINCIPAL
+  document.getElementById("btnExportTbl").onclick = () => {
+      const tbl = document.getElementById("tbl");
+      if(!tbl){ alert("Tabela não encontrada."); return; }
 
       const ws = XLSX.utils.table_to_sheet(tbl);
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, "Tabela");
       XLSX.writeFile(wb, "dashboard_tabela.xlsx");
-  });
+  };
 
 
-  // ✅ Exportar ajustes por mês para Excel
-  const btnAj = document.getElementById('btnExportAjustes');
-  btnAj.onclick = () => {
+  // ✅ Exportar AJUSTES DO MÊS
+  document.getElementById("btnExportAjustes").onclick = () => {
 
       const mes = document.getElementById("selectMesAjustes").value;
+
       if (!mes) {
-          alert("Escolha um mês primeiro!");
+          alert("Escolha um mês.");
           return;
       }
 
@@ -775,30 +776,19 @@ function getAjustesDoMes(escolhido) {
           return;
       }
 
-      const header = [
-          "Dia", "Tipo", "Peixes", "Kg",
-          "Lote", "Vísceras (kg)", "Carcaças (kg)", "Obs"
-      ];
-
+      const header = ["Dia","Tipo","Peixes","Kg","Lote","Vísceras (kg)","Carcaças (kg)","Obs"];
       const linhas = [header];
 
       ajustes.forEach(a => {
           linhas.push([
-              a.dia,
-              a.tipo,
-              a.peixes,
-              a.kg,
-              a.lote,
-              a.visceras,
-              a.carcacas,
-              a.obs
+              a.dia, a.tipo, a.peixes, a.kg,
+              a.lote, a.visceras, a.carcacas, a.obs
           ]);
       });
 
       const wb = XLSX.utils.book_new();
       const ws = XLSX.utils.aoa_to_sheet(linhas);
       XLSX.utils.book_append_sheet(wb, ws, mes.replace("-", "_"));
-
       XLSX.writeFile(wb, `ajustes_${mes}.xlsx`);
   };
 

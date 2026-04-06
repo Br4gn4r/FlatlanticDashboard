@@ -154,7 +154,9 @@
 <script src="indicadores.js"></script>
 
 <script>
+// ✅ remover hhmm() — já não é necessário com horas HH:MM
 function go(h){ window.location.href=h; }
+
 function markActiveFromBody(){
   const c=document.body.getAttribute('data-page');
   if(c) document.querySelector(`.nav .pill[data-link="${c}"]`)?.classList.add('active');
@@ -162,12 +164,6 @@ function markActiveFromBody(){
 markActiveFromBody();
 
 const statusEl=document.getElementById('status');
-
-function hhmm(iso){
-  const d=new Date(iso);
-  if(isNaN(d)) return "";
-  return String(d.getHours()).padStart(2,"0")+":"+String(d.getMinutes()).padStart(2,"0");
-}
 
 function getPeriodoLS(){
   const inicio=localStorage.getItem("periodo_inicio");
@@ -206,10 +202,8 @@ async function applyOverridesOnClient(STOPS){
   }catch(e){ console.warn("Falha override:",e.message); }
 }
 
-// ---------------------------------------------------------
-//    CORREÇÃO 1 — Resumo mensal movido para função
-// ---------------------------------------------------------
 function buildMonthlySummary(STOPS){
+
     const allDays = Object.keys(STOPS).sort();
     if (!allDays.length) return;
 
@@ -227,10 +221,6 @@ function buildMonthlySummary(STOPS){
             porTipo[tipo] = (porTipo[tipo] || 0) + (st.minutes || 0);
         }
     }
-
-    const numDias = allDays.length;
-    const mediaParagensDia = (totalParagensMes / numDias).toFixed(1);
-    const mediaMinutosDia = (totalMinutosMes / numDias).toFixed(1);
 
     const div = document.createElement("div");
     div.style = "background:#fff;padding:16px;border:1px solid #d6d9de;border-radius:8px;margin-bottom:20px;box-shadow:0 2px 4px rgba(0,0,0,0.06);";
@@ -251,18 +241,14 @@ function buildMonthlySummary(STOPS){
       <table>
         <tr><th>Total de paragens no mês</th><td class="num">${totalParagensMes}</td></tr>
         <tr><th>Total de tempo parado</th><td class="num">${totalMinutosMes.toFixed(1)} min</td></tr>
-        <tr><th>Média de paragens por dia</th><td class="num">${mediaParagensDia}</td></tr>
-        <tr><th>Tempo médio parado por dia</th><td class="num">${mediaMinutosDia} min</td></tr>
+        <tr><th>Média de paragens por dia</th><td class="num">${(totalParagensMes/allDays.length).toFixed(1)}</td></tr>
+        <tr><th>Tempo médio parado por dia</th><td class="num">${(totalMinutosMes/allDays.length).toFixed(1)} min</td></tr>
       </table>
 
       <h3 style="color:#0b4ea2; margin-top:20px;">Minutos parados por tipo</h3>
       <table>
-        <thead>
-          <tr><th>Tipo</th><th>Minutos</th></tr>
-        </thead>
-        <tbody>
-          ${tiposHTML}
-        </tbody>
+        <thead><tr><th>Tipo</th><th>Minutos</th></tr></thead>
+        <tbody>${tiposHTML}</tbody>
       </table>
     `;
 
@@ -280,12 +266,7 @@ function buildMonthlySummary(STOPS){
     statusEl.textContent="A atualizar…";
     statusEl.classList.add("loading");
 
-    // aplicar overrides
     await applyOverridesOnClient(STOPS);
-
-    // ---------------------------------------------------------
-    // CORREÇÃO 1 — Resumo mensal agora é construído DEPOIS dos overrides
-    // ---------------------------------------------------------
     buildMonthlySummary(STOPS);
 
     if(dias.length===0){
@@ -332,11 +313,11 @@ function buildMonthlySummary(STOPS){
         tr.classList.add(classFromType(st.type));
 
         const tdIni=document.createElement("td");
-        tdIni.textContent=hhmm(st.start);
+        tdIni.textContent = st.start;   // ✅ HH:MM direto
         tr.appendChild(tdIni);
 
         const tdFim=document.createElement("td");
-        tdFim.textContent=hhmm(st.end);
+        tdFim.textContent = st.end;     // ✅ HH:MM direto
         tr.appendChild(tdFim);
 
         const tdMin=document.createElement("td");
@@ -368,10 +349,10 @@ function buildMonthlySummary(STOPS){
         tdA.appendChild(info);
         tr.appendChild(tdA);
 
-        // ---- GUARDAR ----
         btnS.onclick = async ()=>{
           const novoTipo=(input.value||"").trim();
           if(!novoTipo){ info.textContent="Tipo em branco"; info.className="err"; return; }
+
           statusEl.textContent="A atualizar…";
           statusEl.classList.add("loading");
           info.textContent="";
@@ -385,10 +366,10 @@ function buildMonthlySummary(STOPS){
             const j=await r.json();
             if(!r.ok||!j.ok) throw new Error(j.msg);
 
-            // atualizar local
             st.type=novoTipo;
             tr.className="";
             tr.classList.add(classFromType(novoTipo));
+
             info.textContent="✔ gravado";
             info.className="ok";
 
@@ -403,9 +384,6 @@ function buildMonthlySummary(STOPS){
             statusEl.textContent="Atualizado "+new Date().toLocaleString();
             statusEl.classList.remove("loading");
 
-            // ---------------------------------------------------------
-            // CORREÇÃO 2 — Reload após 2000 ms
-            // ---------------------------------------------------------
             setTimeout(()=>window.location.href=`paragens.html?ts=${Date.now()}`,2000);
 
           }catch(e){
@@ -416,9 +394,9 @@ function buildMonthlySummary(STOPS){
           }
         };
 
-        // ---- REPOR ----
         btnR.onclick = async ()=>{
           if(!confirm("Repor o tipo original?")) return;
+
           statusEl.textContent="A atualizar…";
           statusEl.classList.add("loading");
           info.textContent="";
@@ -445,9 +423,6 @@ function buildMonthlySummary(STOPS){
             statusEl.textContent="Atualizado "+new Date().toLocaleString();
             statusEl.classList.remove("loading");
 
-            // ---------------------------------------------------------
-            // CORREÇÃO 2 — Reload após 2000 ms
-            // ---------------------------------------------------------
             setTimeout(()=>window.location.href=`paragens.html?ts=${Date.now()}`,2000);
 
           }catch(e){

@@ -1,7 +1,14 @@
 import fs from "fs";
 import * as XLSX from "xlsx/xlsx.mjs";
-
 XLSX.set_fs(fs);
+
+// === PATHS FIXOS PARA RAILWAY VOLUME ===
+const AJUSTES_PATH = "/data/ajustes.json";          // ✅ Correto
+const PARAGENS_OVR_PATH = "/data/paragens_user.json"; // ✅ Correto
+
+// Garantir ficheiros no volume
+if (!fs.existsSync(AJUSTES_PATH)) fs.writeFileSync(AJUSTES_PATH, "{}", "utf8");
+if (!fs.existsSync(PARAGENS_OVR_PATH)) fs.writeFileSync(PARAGENS_OVR_PATH, "{}", "utf8");
 
 // === CONFIG ===
 import path from "path";
@@ -12,12 +19,13 @@ const __dirname = path.dirname(__filename);
 const BASE_DIR = __dirname;
 const RAW_DIR  = BASE_DIR;
 const WEB_DIR  = path.join(BASE_DIR, "web");
-const AJUSTES_PATH = path.join(BASE_DIR, "ajustes.json");
-const PARAGENS_OVR_PATH = path.join(BASE_DIR, "paragens_user.json");
 
+// Criar pasta web se não existir
+fs.mkdirSync(WEB_DIR, { recursive: true });
+
+// === OVERRIDES DAS PARAGENS ===
 function loadStopOverrides(){
   try{
-    if (!fs.existsSync(PARAGENS_OVR_PATH)) return {};
     return JSON.parse(fs.readFileSync(PARAGENS_OVR_PATH,"utf8") || "{}");
   } catch(e){
     console.log("[AVISO] Falha a ler paragens_user.json:", e.message);
@@ -25,18 +33,19 @@ function loadStopOverrides(){
   }
 }
 
-fs.mkdirSync(WEB_DIR, { recursive: true });
-
-// período (linha de comandos)
+// === PERÍODO ===
 const argInicio = process.argv[2];
 const argFim    = process.argv[3];
+
 function parseLocalYMD(s){
   if(!s || !/^\d{4}-\d{2}-\d{2}$/.test(s)) return null;
   const [y,m,d] = s.split("-").map(Number);
   return new Date(y, m-1, d);
 }
+
 let dtInicio = parseLocalYMD(argInicio);
 let dtFim    = parseLocalYMD(argFim);
+
 if (dtInicio && dtFim){
   dtFim.setHours(23,59,59,999);
   if (dtInicio > dtFim) [dtInicio, dtFim] = [dtFim, dtInicio];
@@ -46,7 +55,7 @@ if (dtInicio && dtFim){
   console.log("[PERÍODO] Sem filtro");
 }
 
-// utils
+// === UTILS ===
 const EXCEL_EPOCH = new Date(Date.UTC(1899,11,30));
 function excelSerialToDate(n){
   if(typeof n === "number")
@@ -54,21 +63,21 @@ function excelSerialToDate(n){
   const d = new Date(n);
   return isNaN(+d) ? null : d;
 }
+
 function roundHalfUp(n,dec=2){ const p=10**dec; return Math.sign(n)*Math.round(Math.abs(n)*p+1e-8)/p; }
 function roundInt(n){ return Math.sign(n)*Math.round(Math.abs(n)+1e-8); }
 function inPeriod(dt){ if(!dtInicio||!dtFim) return true; return dt>=dtInicio && dt<=dtFim; }
 function minutesBetween(a,b){ return (b-a)/60000; }
 function isBlank(v){ return !v || String(v).trim()===""; }
 
-// Normalização mínima e segura do LOTE: remove apenas caracteres invisíveis problemáticos
 function normLotExact(s){
   return String(s ?? "")
     .normalize("NFKC")
-    .replace(/[\u00A0\u2000-\u200D]/g, "") // NBSP, thin spaces, ZWSP, etc.
+    .replace(/[\u00A0\u2000-\u200D]/g, "")
     .trim();
 }
 
-// paragens
+// === PARAGENS ===
 const STOP_GAP_MIN = 10;
 const LUNCH_MIN = 40, LUNCH_START=11, LUNCH_END=14;
 function overlapsLunch(start,end){ 
@@ -80,7 +89,7 @@ function classifyStop(start,end,dur){
   return (dur>=LUNCH_MIN && overlapsLunch(start,end)) ? "Almoço":"Paragem"; 
 }
 
-// ============= FUNÇÃO ROBUSTA LOWER/UPPER =============
+// === LIMITES L/U ===
 function extractLimits(name) {
   if (!name) return [0,0];
 
@@ -90,40 +99,29 @@ function extractLimits(name) {
     .replace(/\s+/g, " ")
     .replace(/\u00A0/g, " ");
 
-  // inclui '-', '−'(U+2212), '–', '—'
   const rgRange = /(\d+(?:\.\d+)?)[\s]*[-−–—][\s]*(\d+(?:\.\d+)?)/i;
+  const rgLT    = /<\s*(\d+(?:\.\d+)?)/i;
+  const rgPlus  = /\+\s*(\d+(?:\.\d+)?)/i;
 
-  let lo = null, up = null;
-  let m = s.match(rgRange);
+  let lo=null, up=null, m=null;
 
-  if (m) {
+  if (m = s.match(rgRange)) {
     lo = Math.round(parseFloat(m[1]) * 1000);
     up = Math.round(parseFloat(m[2]) * 1000);
-  } else {
-    const rgLT = /<\s*(\d+(?:\.\d+)?)/i;
-    m = s.match(rgLT);
-    if (m) {
-      lo = 0;
-      up = Math.round(parseFloat(m[1]) * 1000);
-    } else {
-      const rgPlus = /\+\s*(\d+(?:\.\d+)?)/i;
-      m = s.match(rgPlus);
-      if (m) {
-        lo = Math.round(parseFloat(m[1]) * 1000);
-        up = 0; // aberto
-      }
-    }
+  } else if (m = s.match(rgLT)) {
+    lo = 0;
+    up = Math.round(parseFloat(m[1]) * 1000);
+  } else if (m = s.match(rgPlus)) {
+    lo = Math.round(parseFloat(m[1]) * 1000);
+    up = 0;
   }
 
-  if (/EVI/i.test(s)) {
-    lo = (lo || 0) + 1;
-  }
+  if (/EVI/i.test(s)) lo = (lo || 0) + 1;
 
   return [lo || 0, up || 0];
 }
-// ======================================================
 
-// === DETEÇÃO DE TIPOS ===
+// === DETEÇÃO ===
 const RE_FILE  = /FILET/i;
 const RE_POST  = /POSTA/i;
 const RE_EVI   = /EVI/i;
@@ -136,7 +134,7 @@ function isEvi(s){ return RE_EVI.test(s) && !isFile(s) && !isPost(s); }
 function isPreg(s){ return RE_PREG.test(s) && !isFile(s) && !isPost(s) && !isEvi(s); }
 function isLing(s){ return RE_LING.test(s) && !isFile(s) && !isPost(s) && !isEvi(s); }
 
-// ler brutos
+// === LER EXCELS ===
 function readAll(){
   const files = fs.readdirSync(RAW_DIR)
     .filter(f=>f.toLowerCase().endsWith(".xlsx"))
@@ -145,11 +143,13 @@ function readAll(){
     .map(f=>path.join(RAW_DIR,f));
 
   let rows=[], raw=0, kept=0;
+
   for (const file of files){
     try{
       const wb = XLSX.readFile(file);
       const ws = wb.Sheets[wb.SheetNames[0]];
       const arr = XLSX.utils.sheet_to_json(ws,{defval:null});
+
       for (const r of arr){
         if (!(
           r["Production time"]!=null &&
@@ -176,22 +176,23 @@ function readAll(){
           kg   : roundHalfUp(Number(r["Batch Weight (kg)"]))
         });
       }
+
     }catch(e){ console.log("[ERRO AO LER]", file, e.message); }
   }
+
   console.log(`[INFO] Mantidas ${kept} linhas (de ${raw})`);
   return rows;
 }
 
+// === LER AJUSTES DO VOLUME (CORRETO) ===
 function loadAjustes(){
   try{
-    if(!fs.existsSync(AJUSTES_PATH)) return {};
     return JSON.parse(fs.readFileSync(AJUSTES_PATH,"utf8")||"{}");
   }catch(e){
     console.log("[AVISO] Falha a ler ajustes.json:", e.message);
     return {};
   }
 }
-
 
 // === PROCESSAMENTO PRINCIPAL ===
 function processAll(){
@@ -200,9 +201,11 @@ function processAll(){
   const ajustes = loadAjustes();
 
   if (rows.length===0){
-    fs.writeFileSync(path.join(WEB_DIR,"indicadores.js"),
+    fs.writeFileSync(
+      path.join(WEB_DIR,"indicadores.js"),
       'window.__indicadores = {"data":[],"monthly":[],"totais":{},"stops":{}};',
-      "utf8");
+      "utf8"
+    );
     console.log("[OK] Sem dados → ficheiro vazio gerado.");
     return;
   }
@@ -217,35 +220,41 @@ function processAll(){
   const totaisPorDia={};
   const stopsByDay={};
 
+  // === PARA CADA DIA ===
   for (const [date, arr] of byDate){
     arr.sort((a,b)=>a.dt-b.dt);
 
-    // === PARAGENS ===
+    // ---------------- PARAGENS -----------------
     let totalStop=0, stopCount=0;
     const stops=[];
 
     for (let i=1;i<arr.length;i++){
-      const prev=arr[i-1].dt, curr=arr[i].dt;
-      const delta=minutesBetween(prev,curr);
+      const delta=minutesBetween(arr[i-1].dt, arr[i].dt);
 
       if (delta > STOP_GAP_MIN){
         totalStop += delta; 
         stopCount++;
 
-        const startISO = prev.toISOString();
-        const endISO   = curr.toISOString();
+        const startISO = arr[i-1].dt.toISOString();
+        const endISO   = arr[i].dt.toISOString();
         const id = `${startISO}_${endISO}`;
 
-        let tipo = classifyStop(prev, curr, delta);
+        let tipo = classifyStop(arr[i-1].dt, arr[i].dt, delta);
         const ovr = stopOverrides?.[date]?.[id];
         if (ovr && String(ovr).trim() !== "") tipo = String(ovr).trim();
 
-        stops.push({ id, start: startISO, end: endISO, minutes: roundHalfUp(delta,2), type: tipo });
+        stops.push({ 
+          id, 
+          start: startISO, 
+          end: endISO, 
+          minutes: roundHalfUp(delta,2), 
+          type: tipo 
+        });
       }
     }
     stopsByDay[date]=stops;
 
-    // === BASE DO DIA ===
+    // ---------------- BASE DO DIA -----------------
     const start=arr[0].dt, end=arr[arr.length-1].dt;
     const span=minutesBetween(start,end);
     const baseFish = arr.reduce((s,x)=>s+x.count,0);
@@ -269,7 +278,7 @@ function processAll(){
       refs     : new Set(arr.map(x=>(x.name||"")+"|"+(x.cust||""))).size
     };
 
-    // === AJUSTES DO DIA ===
+    // ---------------- AJUSTES -----------------
     const aj = Array.isArray(ajustes[date]) ? ajustes[date] : [];
 
     let addTotalFish=0, addTotalKg=0;
@@ -294,50 +303,36 @@ function processAll(){
       const obs  = a.obs ? String(a.obs) : "";
 
       if (tipo === "pregado"){
-        addPregFish += p; addPregKg += k; addTotalFish += p; addTotalKg += k;
-        notas.push(`+${p||0} pregado, +${k||0} kg${obs?` — “${obs}”`:""}`);
-      } else if (tipo === "linguado"){
-        addLingFish += p; addLingKg += k; addTotalFish += p; addTotalKg += k;
-        notas.push(`+${p||0} linguado, +${k||0} kg${obs?` — “${obs}”`:""}`);
-      } else if (tipo === "filete"){
-        addFilFish += p; addFilKg += k; addTotalFish += p; addTotalKg += k;
+        addPregFish += p; addPregKg += k;
+        addTotalFish += p; addTotalKg += k;
+      }
+      else if (tipo === "linguado"){
+        addLingFish += p; addLingKg += k;
+        addTotalFish += p; addTotalKg += k;
+      }
+      else if (tipo === "filete"){
+        addFilFish += p; addFilKg += k;
+        addTotalFish += p; addTotalKg += k;
         extraKgOnly += (vis + car);
-        if (lote) lotAdds.push({ lot:lote, count:p, kg:k, tipo:"Filete" });
-        notas.push(`+${p||0} filete, +${k||0} kg${lote?` [lote ${lote}]`:""}${(vis||car)?` (+${roundHalfUp(vis+car,3)} kg v/c)`:""}${obs?` — “${obs}”`:""}`);
-      } else if (tipo === "posta"){
-        addPosFish += p; addPosKg += k; addTotalFish += p; addTotalKg += k;
+        if (lote) lotAdds.push({ lot:lote, count:p, kg:k });
+      }
+      else if (tipo === "posta"){
+        addPosFish += p; addPosKg += k;
+        addTotalFish += p; addTotalKg += k;
         extraKgOnly += (vis + car);
-        if (lote) lotAdds.push({ lot:lote, count:p, kg:k, tipo:"Posta" });
-        notas.push(`+${p||0} posta, +${k||0} kg${lote?` [lote ${lote}]`:""}${(vis||car)?` (+${roundHalfUp(vis+car,3)} kg v/c)`:""}${obs?` — “${obs}”`:""}`);
-      } else if (tipo === "eviscerado") {
-        const vc = vis + car; extraKgOnly += vc;
-        notas.push(`+${roundHalfUp(vc,3)} kg eviscerado (v/c)${obs?` — “${obs}”`:""}`);
-      } else {
-        notas.push(`(ignorado tipo desconhecido) +${p||0} peixes, +${k||0} kg`);
+        if (lote) lotAdds.push({ lot:lote, count:p, kg:k });
+      }
+      else if (tipo === "eviscerado"){
+        addEviKg += (vis + car);
+        extraKgOnly += (vis + car);
       }
     }
 
-    // === TOTAIS DO DIA ===
+    // ---------------- TOTAIS DO DIA -----------------
     const totalFish = baseFish + addTotalFish;
     const totalKg   = roundHalfUp(baseKg + addTotalKg + extraKgOnly, 2);
-
-    const proc = span - totalStop;
-    const fpm  = proc>0 ? totalFish/proc : 0;
-
-    const preg_fish = base.preg_fish + addPregFish;
-    const preg_kg   = roundHalfUp(base.preg_kg + addPregKg, 2);
-
-    const ling_fish = base.ling_fish + addLingFish;
-    const ling_kg   = roundHalfUp(base.ling_kg + addLingKg, 2);
-
-    const fil_fish  = base.fil_fish  + addFilFish;
-    const fil_kg    = roundHalfUp(base.fil_kg + addFilKg, 2);
-
-    const pos_fish  = base.pos_fish  + addPosFish;
-    const pos_kg    = roundHalfUp(base.pos_kg + addPosKg, 2);
-
-    const evi_fish  = base.evi_fish  + addEviFish;
-    const evi_kg    = roundHalfUp(base.evi_kg + addEviKg, 2);
+    const proc      = span - totalStop;
+    const fpm       = proc>0 ? totalFish/proc : 0;
 
     indicadores.push({
       date,
@@ -346,26 +341,25 @@ function processAll(){
       proc_min:       roundHalfUp(proc,4),
       total_fish:     totalFish,
       total_kg:       totalKg,
-      pregado_fish:   preg_fish,
-      pregado_kg:     preg_kg,
-      linguado_fish:  ling_fish,
-      linguado_kg:    ling_kg,
-      evi_fish:       evi_fish,
-      evi_kg:         evi_kg,
-      filete_fish:    fil_fish,
-      filete_kg:      fil_kg,
-      posta_fish:     pos_fish,
-      posta_kg:       pos_kg,
+      pregado_fish:   base.preg_fish + addPregFish,
+      pregado_kg:     roundHalfUp(base.preg_kg + addPregKg,2),
+      linguado_fish:  base.ling_fish + addLingFish,
+      linguado_kg:    roundHalfUp(base.ling_kg + addLingKg,2),
+      evi_fish:       base.evi_fish + addEviFish,
+      evi_kg:         roundHalfUp(base.evi_kg + addEviKg,2),
+      filete_fish:    base.fil_fish + addFilFish,
+      filete_kg:      roundHalfUp(base.fil_kg + addFilKg,2),
+      posta_fish:     base.pos_fish + addPosFish,
+      posta_kg:       roundHalfUp(base.pos_kg + addPosKg,2),
       total_lots:     base.lots,
       total_refs:     base.refs,
       start_time:     start.toISOString(),
       end_time:       end.toISOString(),
       fish_per_min:   roundHalfUp(fpm,4),
-      stops_count:    stopCount,
-      adjust_note:    (notas.length ? ("Ajustes: " + notas.join(" | ")) : "")
+      stops_count:    stopCount
     });
 
-    // === TOTAIS POR LOTE ===
+    // ---------------- TOTAIS POR LOTE -----------------
     const withLU = arr
       .map(x=>{
         const [lo,up] = extractLimits(x.name);
@@ -374,9 +368,13 @@ function processAll(){
       .filter(r => !(r.count === 0 && r.kg === 0));
 
     for (const la of lotAdds){
-      if (!isBlank(la.lot)) {
-        withLU.push({ lot: normLotExact(la.lot), lo: 0, up: 0, count: la.count||0, kg: la.kg||0 });
-      }
+      withLU.push({ 
+        lot: normLotExact(la.lot), 
+        lo: 0, 
+        up: 0, 
+        count: la.count||0, 
+        kg: la.kg||0 
+      });
     }
 
     const m=new Map();
@@ -396,7 +394,6 @@ function processAll(){
       "Batch Weight (kg)": roundHalfUp(r.kg,2)
     }));
 
-    // 🔽 ORDENAR: por Lote, depois Lower, e depois Upper (0 = aberto → último)
     rowsTot.sort((a, b) => {
       const la = a["Lot number"] ?? "";
       const lb = b["Lot number"] ?? "";
@@ -411,7 +408,7 @@ function processAll(){
       return 0;
     });
 
-    // TOTAL no fim
+    // TOTAL
     rowsTot.push({
       "Lot number":"TOTAL",
       "Lower (g)":0,
@@ -423,9 +420,9 @@ function processAll(){
     totaisPorDia[date]=rowsTot;
   }
 
+  // ---------------- MENSAL -----------------
   indicadores.sort((a,b)=>a.date.localeCompare(b.date));
 
-  // === MENSAL ===
   const monthlyMap=new Map();
   for (const d of indicadores){
     const mk=d.date.slice(0,7);
@@ -437,6 +434,7 @@ function processAll(){
     m.days_count++;
     monthlyMap.set(mk,m);
   }
+
   const monthly = Array.from(monthlyMap.values()).map(m=>({
     month:m.month,
     fish_per_min:(m.total_proc_min>0)?m.total_fish/m.total_proc_min:0,
@@ -446,12 +444,15 @@ function processAll(){
     days:m.days_count
   }));
 
+  // ---------------- GUARDAR -----------------
   const dataObj = { data: indicadores, monthly, totais: totaisPorDia, stops: stopsByDay };
+
   fs.writeFileSync(
     path.join(WEB_DIR,"indicadores.js"),
     "window.__indicadores = " + JSON.stringify(dataObj) + ";",
     "utf8"
   );
+
   console.log("[OK] indicadores.js gerado.");
 }
 

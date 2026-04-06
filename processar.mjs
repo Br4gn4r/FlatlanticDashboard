@@ -2,11 +2,11 @@ import fs from "fs";
 import * as XLSX from "xlsx/xlsx.mjs";
 XLSX.set_fs(fs);
 
-// === PATHS FIXOS PARA RAILWAY VOLUME ===
-const AJUSTES_PATH = "/data/ajustes.json";          // ✅ Correto
-const PARAGENS_OVR_PATH = "/data/paragens_user.json"; // ✅ Correto
+// ✅ Caminhos corretos para o Railway Volume
+const AJUSTES_PATH = "/data/ajustes.json";
+const PARAGENS_OVR_PATH = "/data/paragens_user.json";
 
-// Garantir ficheiros no volume
+// ✅ Garantir existência dos ficheiros no Volume
 if (!fs.existsSync(AJUSTES_PATH)) fs.writeFileSync(AJUSTES_PATH, "{}", "utf8");
 if (!fs.existsSync(PARAGENS_OVR_PATH)) fs.writeFileSync(PARAGENS_OVR_PATH, "{}", "utf8");
 
@@ -20,10 +20,9 @@ const BASE_DIR = __dirname;
 const RAW_DIR  = BASE_DIR;
 const WEB_DIR  = path.join(BASE_DIR, "web");
 
-// Criar pasta web se não existir
 fs.mkdirSync(WEB_DIR, { recursive: true });
 
-// === OVERRIDES DAS PARAGENS ===
+// === OVERRIDES PARAGENS ===
 function loadStopOverrides(){
   try{
     return JSON.parse(fs.readFileSync(PARAGENS_OVR_PATH,"utf8") || "{}");
@@ -55,22 +54,35 @@ if (dtInicio && dtFim){
   console.log("[PERÍODO] Sem filtro");
 }
 
-// === UTILS ===
-const EXCEL_EPOCH = new Date(Date.UTC(1899,11,30));
-function excelSerialToDate(n){
-  if(typeof n === "number")
-    return new Date(EXCEL_EPOCH.getTime() + Math.round(n*86400*1000));
-  const d = new Date(n);
-  return isNaN(+d) ? null : d;
+// ✅ CORREÇÃO DST — Função robusta sem deslocamento de hora
+function excelSerialToDate(sn) {
+  if (typeof sn !== "number") return null;
+
+  // Excel epoch ALWAYS UTC
+  const epoch = Date.UTC(1899, 11, 30);
+  const ms = epoch + sn * 86400 * 1000;
+
+  const d = new Date(ms);
+
+  // ✅ Construir data LOCAL sem ajuste DST
+  return new Date(
+    d.getFullYear(),
+    d.getMonth(),
+    d.getDate(),
+    d.getHours(),
+    d.getMinutes(),
+    d.getSeconds()
+  );
 }
 
+// == UTILS ==
 function roundHalfUp(n,dec=2){ const p=10**dec; return Math.sign(n)*Math.round(Math.abs(n)*p+1e-8)/p; }
 function roundInt(n){ return Math.sign(n)*Math.round(Math.abs(n)+1e-8); }
 function inPeriod(dt){ if(!dtInicio||!dtFim) return true; return dt>=dtInicio && dt<=dtFim; }
 function minutesBetween(a,b){ return (b-a)/60000; }
 function isBlank(v){ return !v || String(v).trim()===""; }
 
-function normLotExact(s){
+function normLotExact(s) {
   return String(s ?? "")
     .normalize("NFKC")
     .replace(/[\u00A0\u2000-\u200D]/g, "")
@@ -80,16 +92,18 @@ function normLotExact(s){
 // === PARAGENS ===
 const STOP_GAP_MIN = 10;
 const LUNCH_MIN = 40, LUNCH_START=11, LUNCH_END=14;
+
 function overlapsLunch(start,end){ 
   const y=start.getFullYear(),m=start.getMonth(),d=start.getDate();
   const L1=new Date(y,m,d,LUNCH_START,0,0), L2=new Date(y,m,d,LUNCH_END,0,0); 
   return end > L1 && start < L2; 
 }
+
 function classifyStop(start,end,dur){ 
   return (dur>=LUNCH_MIN && overlapsLunch(start,end)) ? "Almoço":"Paragem"; 
 }
 
-// === LIMITES L/U ===
+// === LIMITES ===
 function extractLimits(name) {
   if (!name) return [0,0];
 
@@ -184,7 +198,7 @@ function readAll(){
   return rows;
 }
 
-// === LER AJUSTES DO VOLUME (CORRETO) ===
+// === AJUSTES ===
 function loadAjustes(){
   try{
     return JSON.parse(fs.readFileSync(AJUSTES_PATH,"utf8")||"{}");
@@ -194,7 +208,7 @@ function loadAjustes(){
   }
 }
 
-// === PROCESSAMENTO PRINCIPAL ===
+// === PROCESSAMENTO ===
 function processAll(){
   const rows = readAll();
   const stopOverrides = loadStopOverrides(); 
@@ -220,7 +234,7 @@ function processAll(){
   const totaisPorDia={};
   const stopsByDay={};
 
-  // === PARA CADA DIA ===
+  // === POR DIA ===
   for (const [date, arr] of byDate){
     arr.sort((a,b)=>a.dt-b.dt);
 
@@ -254,7 +268,7 @@ function processAll(){
     }
     stopsByDay[date]=stops;
 
-    // ---------------- BASE DO DIA -----------------
+    // ---------------- BASE -----------------
     const start=arr[0].dt, end=arr[arr.length-1].dt;
     const span=minutesBetween(start,end);
     const baseFish = arr.reduce((s,x)=>s+x.count,0);
@@ -290,7 +304,6 @@ function processAll(){
     let addPosFish=0,  addPosKg=0;
     let addEviFish=0,  addEviKg=0;
 
-    const notas=[];
     const lotAdds=[];
 
     for (const a of aj){
@@ -300,31 +313,31 @@ function processAll(){
       const lote = a.lote ? String(a.lote) : null;
       const vis  = Number(a.visceras_kg || 0);
       const car  = Number(a.carcacas_kg || 0);
-      const obs  = a.obs ? String(a.obs) : "";
+      const vc   = vis + car;
 
       if (tipo === "pregado"){
-        addPregFish += p; addPregKg += k;
-        addTotalFish += p; addTotalKg += k;
+        addPregFish+=p; addPregKg+=k;
+        addTotalFish+=p; addTotalKg+=k;
       }
       else if (tipo === "linguado"){
-        addLingFish += p; addLingKg += k;
-        addTotalFish += p; addTotalKg += k;
+        addLingFish+=p; addLingKg+=k;
+        addTotalFish+=p; addTotalKg+=k;
       }
       else if (tipo === "filete"){
-        addFilFish += p; addFilKg += k;
-        addTotalFish += p; addTotalKg += k;
-        extraKgOnly += (vis + car);
+        addFilFish+=p; addFilKg+=k;
+        addTotalFish+=p; addTotalKg+=k;
+        extraKgOnly += vc;
         if (lote) lotAdds.push({ lot:lote, count:p, kg:k });
       }
       else if (tipo === "posta"){
-        addPosFish += p; addPosKg += k;
-        addTotalFish += p; addTotalKg += k;
-        extraKgOnly += (vis + car);
+        addPosFish+=p; addPosKg+=k;
+        addTotalFish+=p; addTotalKg+=k;
+        extraKgOnly += vc;
         if (lote) lotAdds.push({ lot:lote, count:p, kg:k });
       }
       else if (tipo === "eviscerado"){
-        addEviKg += (vis + car);
-        extraKgOnly += (vis + car);
+        addEviKg += vc;
+        extraKgOnly += vc;
       }
     }
 
@@ -368,12 +381,12 @@ function processAll(){
       .filter(r => !(r.count === 0 && r.kg === 0));
 
     for (const la of lotAdds){
-      withLU.push({ 
-        lot: normLotExact(la.lot), 
-        lo: 0, 
-        up: 0, 
-        count: la.count||0, 
-        kg: la.kg||0 
+      withLU.push({
+        lot: normLotExact(la.lot),
+        lo: 0,
+        up: 0,
+        count: la.count||0,
+        kg: la.kg||0
       });
     }
 
@@ -404,11 +417,9 @@ function processAll(){
       if (loA !== loB) return loA - loB;
       const upA = a["Upper (g)"] === 0 ? Number.POSITIVE_INFINITY : a["Upper (g)"];
       const upB = b["Upper (g)"] === 0 ? Number.POSITIVE_INFINITY : b["Upper (g)"];
-      if (upA !== upB) return upA - upB;
-      return 0;
+      return upA - upB;
     });
 
-    // TOTAL
     rowsTot.push({
       "Lot number":"TOTAL",
       "Lower (g)":0,
@@ -420,7 +431,7 @@ function processAll(){
     totaisPorDia[date]=rowsTot;
   }
 
-  // ---------------- MENSAL -----------------
+  // === MENSAL ===
   indicadores.sort((a,b)=>a.date.localeCompare(b.date));
 
   const monthlyMap=new Map();
@@ -444,7 +455,7 @@ function processAll(){
     days:m.days_count
   }));
 
-  // ---------------- GUARDAR -----------------
+  // === GUARDAR ===
   const dataObj = { data: indicadores, monthly, totais: totaisPorDia, stops: stopsByDay };
 
   fs.writeFileSync(

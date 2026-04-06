@@ -704,29 +704,88 @@ function render(rows){
 
 <!-- EXPORT -->
 <div id="exportBarDashboard" style="margin:16px 0; display:flex; gap:8px; flex-wrap:wrap;">
-  <button id="btnExportTbl" class="flat-btn">Exportar CSV (Tabela)</button>
-  <button id="btnExportAjustes" class="flat-btn">Exportar CSV (Ajustes do dia)</button>
+  <button id="btnExportTbl" class="flat-btn">Exportar Excel (Tabela)</button>
+  <button id="btnExportAjustes" class="flat-btn">Exportar Excel (Ajustes)</button>
 </div>
 
+<script>
+function getAjustesDoMes() {
+  const IND = window.__indicadores || {};
+  const month = document.getElementById("selectDia")?.value?.slice(0,7);
+
+  // Se não houver mês selecionado → usar mês do primeiro dia carregado
+  const dataKeys = Object.keys(IND.data || []);
+  const mesAtual = month || (dataKeys.length ? dataKeys[0].slice(0,7) : null);
+  if (!mesAtual) return [];
+
+  // Ler ajustes da API já carregada no window.__indicadores
+  const tabela = [];
+  const ajustesAll = IND.ajustes || {};
+
+  for (const dia of Object.keys(ajustesAll)) {
+    if (!dia.startsWith(mesAtual)) continue;
+
+    for (const aj of ajustesAll[dia]) {
+      tabela.push({
+        dia,
+        tipo: aj.tipo,
+        peixes: aj.peixes,
+        kg: aj.kg,
+        lote: aj.lote,
+        visceras: aj.visceras_kg,
+        carcacas: aj.carcacas_kg,
+        obs: aj.obs
+      });
+    }
+  }
+  return tabela;
+}
+</script>
+  
 <script>
 (function(){
   const btnTbl=document.getElementById('btnExportTbl');
   btnTbl && (btnTbl.onclick=function(){
     const tbl=document.getElementById('tbl');
     if(!tbl){ alert('Tabela não encontrada.'); return; }
-    Export.downloadCSVFromTable(tbl,'dashboard_tabela');
+     const ws = XLSX.utils.table_to_sheet(tbl);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Tabela");
+      XLSX.writeFile(wb, "dashboard_tabela.xlsx");
+
   });
 
   const btnAj=document.getElementById('btnExportAjustes');
   btnAj && (btnAj.onclick=function(){
     const tb=document.getElementById('ajTbody');
     if(!tb){ alert('Lista de ajustes não encontrada.'); return; }
-    const table=tb.closest('table') || tb;
-    Export.downloadCSVFromTable(table,'dashboard_ajustes');
+    const ajustes = getAjustesDoMes();
+if (!ajustes.length) {
+  alert("Não há ajustes neste mês.");
+  return;
+}
+
+// Converter ajustes → excel
+const cabec = ["Dia","Tipo","Peixes","Kg","Lote","Vísceras (kg)","Carcaças (kg)","Obs"];
+const linhas = [cabec];
+
+ajustes.forEach(a => {
+  linhas.push([
+    a.dia, a.tipo, a.peixes, a.kg, a.lote,
+    a.visceras, a.carcacas, a.obs
+  ]);
+});
+
+const ws = XLSX.utils.aoa_to_sheet(linhas);
+const wb = XLSX.utils.book_new();
+XLSX.utils.book_append_sheet(wb, ws, "Ajustes_do_mes");
+XLSX.writeFile(wb, "dashboard_ajustes_mes.xlsx");
   });
 })();
 </script>
 
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>  
+  
 <script src="export.js?v=1"></script>
 
 <script>

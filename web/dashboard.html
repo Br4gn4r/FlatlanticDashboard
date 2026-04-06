@@ -707,8 +707,9 @@ function render(rows){
 
   <label style="font-weight:bold; color:#0b4ea2;">Mês:</label>
 
-  <input type="month" id="selectMesAjustes"
-         style="padding:6px 8px; border:1px solid #0b4ea2; border-radius:6px; background:white; cursor:pointer;">
+ <input type="month" id="selectMesAjustes" class="flat-btn"
+       style="padding:6px; background:white; border:1px solid #0b4ea2; cursor:pointer;"
+       onkeydown="return false;">
 
   <button id="btnExportAjustes" class="flat-btn">Exportar Ajustes do Mês</button>
 

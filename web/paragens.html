@@ -460,6 +460,40 @@ function buildMonthlySummary(STOPS){
 
 <script>
 (function () {
+
+  function tableToJson(t, dia) {
+    const linhas = [];
+
+    // Cabeçalho personalizado
+    linhas.push(["Dia", dia]);
+    linhas.push([]);
+    // Cabeçalho da tabela
+    const headers = [];
+    t.querySelectorAll("thead th").forEach(th => headers.push(th.textContent.trim()));
+    linhas.push(headers);
+
+    // Linhas da tabela (inclui tipo e não inclui botões)
+    t.querySelectorAll("tbody tr").forEach(tr => {
+      const row = [];
+      tr.querySelectorAll("td").forEach((td, idx) => {
+        if (idx === 3) {
+          // Coluna do tipo (tem input), capturar o valor correto
+          const inp = td.querySelector("input");
+          row.push(inp ? inp.value.trim() : td.textContent.trim());
+        } else if (idx === 4) {
+          // Coluna das ações -> ignorar
+        } else {
+          row.push(td.textContent.trim());
+        }
+      });
+      linhas.push(row);
+    });
+
+    linhas.push([]);
+    linhas.push([]);
+    return linhas;
+  }
+
   const btnAll = document.getElementById('btnExportAllStops');
 
   btnAll.onclick = () => {
@@ -467,50 +501,45 @@ function buildMonthlySummary(STOPS){
     const tables = container.querySelectorAll('table');
     if (!tables.length) { alert('Sem tabelas.'); return; }
 
-    statusEl.textContent = "A preparar exportação…";
+    statusEl.textContent = "A gerar Excel…";
     statusEl.classList.add("loading");
 
     try {
-      let linhas = [];
+      const wb = XLSX.utils.book_new();
+      let allRows = [];
 
       tables.forEach(t => {
-        // Encontrar o H2 correspondente ao dia
+        // Encontrar o H2 correspondente (o dia)
         let prev = t.previousElementSibling;
-        while (prev && prev.tagName !== 'H2') prev = prev.previousElementSibling;
-        const dia = prev ? prev.textContent.trim() : "Dia desconhecido";
+        while (prev && prev.tagName !== 'H2')
+          prev = prev.previousElementSibling;
 
-        // Cabeçalho do dia
-        linhas.push("### " + dia);
+        const dia = prev ? prev.textContent.trim() : "Dia";
 
-        // CSV da tabela (função interna da export.js)
-        const csv = Export.tableToCSV(t).split("\n");
-        linhas.push(...csv);
+        // Converter esta tabela para linhas JSON
+        const linhas = tableToJson(t, dia);
 
-        // Linha vazia separadora
-        linhas.push("");
+        // Adicionar ao conjunto geral
+        allRows = allRows.concat(linhas);
       });
 
-      // Criar o ficheiro CSV único
-      const blob = new Blob([linhas.join("\n")], {
-        type: "text/csv;charset=utf-8;"
-      });
-      const url = URL.createObjectURL(blob);
+      // Criar worksheet única
+      const ws = XLSX.utils.aoa_to_sheet(allRows);
+      XLSX.utils.book_append_sheet(wb, ws, "Paragens");
 
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = "paragens_todas.csv";
-      a.click();
-
-      URL.revokeObjectURL(url);
+      XLSX.writeFile(wb, "paragens_todas.xlsx");
 
     } finally {
       statusEl.textContent = "Atualizado " + new Date().toLocaleString();
       statusEl.classList.remove("loading");
     }
   };
+
 })();
 </script>
 
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>  
+  
 <script src="export.js?v=1"></script>
 
 <script>

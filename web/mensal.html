@@ -274,6 +274,7 @@ function enhanceChartsOnce(){
 
     createCharts();
 
+    await loadScript("https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js");
     await loadScript("export.js?v=1");
 
     enhanceChartsOnce();
